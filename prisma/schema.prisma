@@ -29,6 +29,7 @@ model User {
   createAt  DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   Session   Session[]
+  myPlayground Playground[]
 }
 
 model Account {
@@ -67,3 +68,28 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
+
+enum Templates{
+  REACT
+  NEXTJS
+  VUE
+  EXPRESS
+  HONO
+  ANGULAR
+}
+
+model Playground{
+  id String @id @default(cuid()) @map("_id")
+  title String
+  description String?
+  template Templates @default(REACT)
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
+userId String
+user User @relation(fields: [userId],references: [id],onDelete:Cascade)
+
+
+  // template files
+}
+
+
