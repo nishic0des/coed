@@ -17,5 +17,5 @@ export interface Project {
 	updatedAt: Date;
 	userId: string;
 	user: User;
-	StarMark: { isMarked: boolean }[];
+	StarMark?: { isMarked: boolean }[];
 }

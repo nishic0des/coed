@@ -121,24 +121,13 @@ export function DashboardSidebar({
 									Create your playground
 								</div>
 							) : (
-								starredPlaygrounds.map((playground) => {
-									const IconComponent = lucideIconMap[playground.icon] || Code2;
-									return (
-										<SidebarMenuItem key={playground.id}>
-											<SidebarMenuButton
-												asChild
-												isActive={pathname === `/playground/${playground.id}`}
-												tooltip={playground.name}>
-												<Link href={`/playground/${playground.id}`}>
-													{IconComponent && (
-														<IconComponent className="h-4 w-4" />
-													)}
-													<span>{playground.name}</span>
-												</Link>
-											</SidebarMenuButton>
-										</SidebarMenuItem>
-									);
-								})
+								starredPlaygrounds.map((playground) => (
+									<PlaygroundItem
+										key={playground.id}
+										playground={playground}
+										pathname={pathname}
+									/>
+								))
 							)}
 						</SidebarMenu>
 					</SidebarGroupContent>
@@ -203,4 +192,28 @@ export function DashboardSidebar({
 			<SidebarRail />
 		</Sidebar>
 	);
+
+	function PlaygroundItem({
+		playground,
+		pathname,
+	}: {
+		playground: PlaygroundData;
+		pathname: string;
+	}) {
+		const IconComponent = lucideIconMap[playground.icon] || Code2;
+
+		return (
+			<SidebarMenuItem>
+				<SidebarMenuButton
+					asChild
+					isActive={pathname === `/playground/${playground.id}`}
+					tooltip={playground.name}>
+					<Link href={`/playground/${playground.id}`}>
+						<IconComponent className="h-4 w-4" />
+						<span>{playground.name}</span>
+					</Link>
+				</SidebarMenuButton>
+			</SidebarMenuItem>
+		);
+	}
 }

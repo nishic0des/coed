@@ -53,6 +53,7 @@ import {
 	Eye,
 } from "lucide-react";
 import { toast } from "sonner";
+import MarkedToggleButton from "./marked-toggle";
 
 interface ProjectTableProps {
 	projects: Project[];
@@ -88,31 +89,98 @@ export default function ProjectTable({
 	const [favoutrie, setFavourite] = useState(false);
 
 	const handleEditClick = (project: Project) => {
-		//    Write your logic here
+		setSelectedProject(project);
+		setEditData({
+			title: project.title,
+			description: project.description || "",
+		});
+		setEditDialogOpen(true);
 	};
 
 	const handleDeleteClick = async (project: Project) => {
-		//    Write your logic here
+		setSelectedProject(project);
+		setDeleteDialogOpen(true);
 	};
 
 	const handleUpdateProject = async () => {
-		//    Write your logic here
+		if (!selectedProject || !onUpdateProject) return;
+		setIsLoading(true);
+
+		try {
+			await onUpdateProject(selectedProject.id, editData);
+			setEditDialogOpen(false);
+			toast.success("Poject updated successfully!");
+		} catch (error) {
+			toast.error("Error updating project. Please try again later.");
+			console.error("Error updating project: ", error);
+		} finally {
+			setIsLoading(false);
+		}
 	};
 
-	const handleMarkasFavorite = async (project: Project) => {
+	const handleMarkasFavorite = async (projectId: string) => {
 		//    Write your logic here
+		try {
+			const project = projects.find((p) => p.id === projectId);
+			if (!project) return;
+
+			const newStatus = !project.StarMark?.[0]?.isMarked;
+
+			const updatedProjects = projects.map((p) =>
+				p.id === projectId
+					? {
+							...p,
+							StarMark: newStatus ? [{ isMarked: true }] : [],
+					  }
+					: p
+			);
+
+			if (onMarkasFavorite) {
+				await onMarkasFavorite(projectId);
+			}
+
+			toast.success(
+				newStatus ? "Added to favorites" : "Removed from favorites"
+			);
+		} catch (error) {
+			console.error("Error updating favorite status:", error);
+			toast.error("Failed to update favorite status");
+		}
 	};
 
 	const handleDeleteProject = async () => {
-		//    Write your logic here
+		if (!selectedProject || !onDeleteProject) return;
+		setIsLoading(true);
+
+		try {
+			await onDeleteProject(selectedProject.id);
+			setDeleteDialogOpen(false);
+			setSelectedProject(null);
+			toast.success("Deleted project successfully.");
+		} catch (error) {
+			toast.error("Failed to delete project");
+			console.error("Error deleting project: ", error);
+		}
 	};
 
 	const handleDuplicateProject = async (project: Project) => {
-		//    Write your logic here
+		if (!onDuplicateProject) return;
+		setIsLoading(true);
+		try {
+			await onDuplicateProject(project.id);
+			toast.success("Duplicated project successfully.");
+		} catch (error) {
+			toast.error("Failed to dulpicate project");
+			console.error("Error duplicating project: ", error);
+		} finally {
+			setIsLoading(false);
+		}
 	};
 
 	const copyProjectUrl = (projectId: string) => {
-		//    Write your logic here
+		const url = `${window.location.origin}/playground/${projectId}`;
+		navigator.clipboard.writeText(url);
+		toast.success("Project URL copied to clipboard.");
 	};
 
 	return (
@@ -177,13 +245,20 @@ export default function ProjectTable({
 										</DropdownMenuTrigger>
 										<DropdownMenuContent align="end" className="w-48">
 											<DropdownMenuItem asChild>
-												{/* <MarkedToggleButton
-													markedForRevision={project.Starmark[0]?.isMarked}
+												<MarkedToggleButton
+													markedForRevision={
+														project.StarMark?.length
+															? project.StarMark[0].isMarked
+															: false
+													}
 													id={project.id}
-												/> */}
+													onMarkAsFavourite={handleMarkasFavorite}
+												/>
 											</DropdownMenuItem>
 											<DropdownMenuItem asChild>
-												<Link href={`/playground/${project.id}`} className="flex items-center">
+												<Link
+													href={`/playground/${project.id}`}
+													className="flex items-center">
 													<Eye className="h-4 w-4 mr-2" />
 													Open Project
 												</Link>
@@ -235,8 +310,8 @@ export default function ProjectTable({
 					<DialogHeader>
 						<DialogTitle>Edit Project</DialogTitle>
 						<DialogDescription>
-							Make changes to your project details here. Click save when you're
-							done.
+							Make changes to your project details here. Click save when
+							you&apos;re done.
 						</DialogDescription>
 					</DialogHeader>
 					<div className="grid gap-4 py-4">
