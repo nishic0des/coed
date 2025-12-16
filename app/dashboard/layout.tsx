@@ -22,7 +22,7 @@ export default async function DashboardLayout({
 		id: item.id,
 		name: item.title,
 		icon: technologyMap[item.template] || "Code2",
-		starred: false,
+		starred: item.Starmark?.[0]?.isMarked || false,
 	}));
 
 	return (

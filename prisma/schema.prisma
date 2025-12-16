@@ -30,6 +30,7 @@ model User {
   updatedAt DateTime  @updatedAt
   Session   Session[]
   myPlayground Playground[]
+  starredPlayground StarMark[]
 }
 
 model Account {
@@ -85,11 +86,25 @@ model Playground{
   template Templates @default(REACT)
 createdAt DateTime @default(now())
 updatedAt DateTime @updatedAt
+
+Starmark StarMark[]
 userId String
 user User @relation(fields: [userId],references: [id],onDelete:Cascade)
 
 
   // template files
+}
+
+model StarMark{
+  id String @id @default(cuid()) @map("_id")
+  userId String
+  playgroundId String
+  isMarked Boolean
+  createdAt DateTime @default(now())
+  user User @relation(fields:[userId],references: [id])
+  playground Playground @relation(fields: [playgroundId], references: [id])
+
+  @@unique([userId,playgroundId])
 }
 
 

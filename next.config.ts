@@ -4,6 +4,16 @@ const nextConfig: NextConfig = {
 	reactCompiler: true,
 	// Add empty turbopack config to use Turbopack
 	turbopack: {},
+	images: {
+		remotePatterns: [
+			{
+				protocol: "https",
+				hostname: "*",
+				port: "",
+				pathname: "/**",
+			},
+		],
+	},
 	// Keep webpack config for compatibility
 	webpack: (config, { isServer }) => {
 		if (!isServer) {
