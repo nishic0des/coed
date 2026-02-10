@@ -21,7 +21,7 @@ interface UsePlaygroundReturn {
 
 export const usePlayground = (id: string): UsePlaygroundReturn => {
 	const [playgroundData, setPlaygroundData] = useState<PlaygroundData | null>(
-		null
+		null,
 	);
 	const [templateData, setTemplateData] = useState<TemplateFolder | null>(null);
 
@@ -66,7 +66,7 @@ export const usePlayground = (id: string): UsePlaygroundReturn => {
 					templateRes.templateJson || {
 						folderName: "Root",
 						items: [],
-					}
+					},
 				);
 			}
 			toast.success("Loaded template successfully");
@@ -83,14 +83,12 @@ export const usePlayground = (id: string): UsePlaygroundReturn => {
 		async (data: TemplateFolder) => {
 			try {
 				await SaveUpdatedCode(id, data);
-				toast.success("Changes saved successfully");
 			} catch (error) {
 				console.error("Error saving template data:", error);
-				toast.error("Failed to save changes");
 				throw error;
 			}
 		},
-		[id]
+		[id],
 	);
 
 	useEffect(() => {

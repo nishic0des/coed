@@ -93,6 +93,7 @@ export function TemplateFileTree({
 	onDeleteFolder,
 	onRenameFile,
 	onRenameFolder,
+	
 }: TemplateFileTreeProps) {
 	const isRootFolder = data && typeof data === "object" && "folderName" in data;
 	const [isNewFileDialogOpen, setIsNewFileDialogOpen] = React.useState(false);

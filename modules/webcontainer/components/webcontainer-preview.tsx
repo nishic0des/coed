@@ -54,6 +54,7 @@ const WebContainerPreview = ({
 	const [isSetupInProgress, setIsSetupInProgress] = useState(false);
 
 	const terminalRef = useRef<any>(null);
+	const setupInitiatedRef = useRef<boolean>(false);
 
 	// Reset setup state when forceResetup changes
 	useEffect(() => {
@@ -69,26 +70,57 @@ const WebContainerPreview = ({
 				starting: false,
 				ready: false,
 			});
+			setupInitiatedRef.current = false;
 		}
 	}, [forceResetup]);
 
-	// Reset setup state when templateData changes significantly
+	// Reset setup state when templateData structure changes (not just content)
 	useEffect(() => {
 		if (templateData && templateData.items && templateData.items.length > 0) {
-			setIsSetupComplete(false);
-			setIsSetupInProgress(false);
+			// Only reset if we haven't completed setup yet
+			// This prevents unnecessary re-setup when files are saved
+			if (!isSetupComplete) {
+				setIsSetupComplete(false);
+				setIsSetupInProgress(false);
+			}
 		}
-	}, [templateData?.items?.length, templateData]);
+	}, [templateData?.items?.length, isSetupComplete]);
 
 	useEffect(() => {
+		console.log("🎯 useEffect triggered:", {
+			hasInstance: !!instance,
+			isSetupComplete,
+			isSetupInProgress,
+			hasOnServerReady: !!onServerReady,
+			timestamp: new Date().toISOString(),
+		});
+
 		async function setupContainer() {
 			console.log("🔧 setupContainer called:", {
 				instance: !!instance,
 				isSetupComplete,
 				isSetupInProgress,
+				setupInitiated: setupInitiatedRef.current,
+				timestamp: new Date().toISOString(),
 			});
 
-			if (!instance || isSetupComplete || isSetupInProgress) return;
+			if (
+				!instance ||
+				isSetupComplete ||
+				isSetupInProgress ||
+				setupInitiatedRef.current
+			) {
+				console.log("🔧 setupContainer early return:", {
+					hasInstance: !!instance,
+					isSetupComplete,
+					isSetupInProgress,
+					setupInitiated: setupInitiatedRef.current,
+				});
+				return;
+			}
+
+			// Mark setup as initiated to prevent duplicates
+			setupInitiatedRef.current = true;
 
 			console.log("🚀 Starting WebContainer setup...");
 			try {
@@ -126,6 +158,13 @@ const WebContainerPreview = ({
 								starting: false,
 								ready: true,
 							}));
+							setIsSetupComplete(true);
+							setIsSetupInProgress(false);
+
+							// Notify parent component
+							if (onServerReady) {
+								onServerReady(url);
+							}
 						});
 
 						setCurrentStep(4);
@@ -225,9 +264,10 @@ const WebContainerPreview = ({
 					);
 				}
 
-				const startProcess = await instance.spawn("npm", ["run", "start"]);
+				const startProcess = await instance.spawn("npm", ["run", "dev"]);
 				console.log("🚀 npm run start started");
 
+				// Add server-ready listener (WebContainer handles duplicate prevention)
 				instance.on("server-ready", (port: number, url: string) => {
 					console.log("🌐 Server-ready event received:", { port, url });
 					if (terminalRef.current?.writeToTerminal) {
@@ -280,13 +320,8 @@ const WebContainerPreview = ({
 		}
 
 		setupContainer();
-	}, [
-		instance,
-		templateData,
-		isSetupComplete,
-		isSetupInProgress,
-		onServerReady,
-	]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [instance, isSetupComplete, templateData, onServerReady]);
 
 	useEffect(() => {
 		return () => {};
@@ -349,15 +384,17 @@ const WebContainerPreview = ({
 
 	console.log("🎬 WebContainerPreview render:", {
 		serverUrl: !!serverUrl,
+		previewUrl: !!previewUrl,
 		serverUrlValue: serverUrl,
-		shouldShowPreview: !!serverUrl,
+		previewUrlValue: previewUrl,
+		shouldShowPreview: !!previewUrl,
 	});
 
 	return (
 		<div
 			className="h-full w-full flex flex-col"
 			style={{ minHeight: "400px", backgroundColor: "#f0f0f0" }}>
-			{!serverUrl ? (
+			{!previewUrl ? (
 				<div className="h-full flex flex-col">
 					<div className="w-full max-w-md p-6 m-5 rounded-lg bg-white dark:bg-zinc-800 shadow-sm mx-auto">
 						<Progress
@@ -397,15 +434,12 @@ const WebContainerPreview = ({
 				</div>
 			) : (
 				<>
-					<div className="flex-1 bg-red-100" style={{ minHeight: "200px" }}>
+					<div className="flex-1 bg-gray-900" style={{ minHeight: "200px" }}>
 						<div className="p-2 text-center">
-							<div className="text-sm font-mono bg-green-500 text-white p-2 rounded">
-								🌐 PREVIEW LOADING
-							</div>
-							<div className="mt-2 text-xs">URL: {serverUrl}</div>
+							<div className="mt-2 text-xs">URL: {previewUrl}</div>
 						</div>
 						<iframe
-							src={serverUrl}
+							src={previewUrl}
 							className="w-full h-full border-none"
 							title="WebContainer Preview"
 							style={{ minHeight: "300px" }}
