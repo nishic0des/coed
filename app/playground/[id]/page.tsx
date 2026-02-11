@@ -58,13 +58,15 @@ import {
 	ResizablePanelGroup,
 } from "@/components/ui/resizable";
 
-import PlaygroundEditor from "@/modules/playground/components/playground-editor";
+import { PlaygroundEditor } from "@/modules/playground/components/playground-editor";
 
 import { useWebContainer } from "@/modules/webcontainer/hooks/useWebContainer";
 
 import WebContainerPreview from "@/modules/webcontainer/components/webcontainer-preview";
 import { findFilePath } from "@/modules/playground/lib";
 import { toast } from "sonner";
+import ToggleAI from "@/modules/playground/components/toggle-ai";
+import { useAISuggestions } from "@/modules/playground/hooks/useAISuggestion";
 
 const MainPlaygroundPage = () => {
 	const { id } = useParams<{ id: string }>();
@@ -125,7 +127,9 @@ const MainPlaygroundPage = () => {
 
 	const hasUnsavedChanges = openFiles.some((file) => file.hasUnsavedChanges);
 
-	const [isPreviewVisible, setIsPreviewVisible] = useState(false);
+	const [isPreviewVisible, setIsPreviewVisible] = useState(true);
+
+	const aiSuggestion = useAISuggestions();
 
 	useEffect(() => {
 		console.log("🔍 isPreviewVisible:", isPreviewVisible);
@@ -144,6 +148,7 @@ const MainPlaygroundPage = () => {
 	};
 
 	const handleSave = useCallback(
+		// eslint-disable-next-line react-hooks/preserve-manual-memoization
 		async (fileId?: string) => {
 			const targetedFileId = fileId || activeFileId;
 			if (!targetedFileId) return;
@@ -166,7 +171,7 @@ const MainPlaygroundPage = () => {
 				const updatedTemplateData = JSON.parse(
 					JSON.stringify(latestTemplateData),
 				);
-				const updateFileContent = (items: any[]) =>
+				const updateFileContent = (items: any[]): any[] =>
 					items.map((item) => {
 						if ("folderName" in item) {
 							return { ...item, items: updateFileContent(item.items) };
@@ -189,7 +194,7 @@ const MainPlaygroundPage = () => {
 				}
 
 				const newTemplateData = await saveTemplateData(updatedTemplateData);
-				setTemplateData(newTemplateData || updatedTemplateData);
+				setTemplateData(updatedTemplateData);
 
 				const updatedOpenFiles = openFiles.map((f) =>
 					f.id === targetedFileId
@@ -434,9 +439,11 @@ const MainPlaygroundPage = () => {
 									<TooltipContent>Save All (Ctrl+Shift+S)</TooltipContent>
 								</Tooltip>
 
-								<Button variant={"default"} size={"icon"}>
-									<Bot className="size-4" />
-								</Button>
+								<ToggleAI
+									isEnabled={aiSuggestion.isEnabled}
+									onToggle={aiSuggestion.toggleEnabled}
+									suggestionLoading={aiSuggestion.isLoading}
+								/>
 
 								<DropdownMenu>
 									<DropdownMenuTrigger asChild>
@@ -526,6 +533,18 @@ const MainPlaygroundPage = () => {
 													activeFileId &&
 														updateFileContent(activeFileId, value);
 												}}
+												suggestion={aiSuggestion.suggestion}
+												suggestionLoading={aiSuggestion.isLoading}
+												suggestionPosition={aiSuggestion.position}
+												onAcceptSuggestion={(editor, monaco) =>
+													aiSuggestion.acceptSuggestion(editor, monaco)
+												}
+												onRejectSuggestion={(editor) =>
+													aiSuggestion.rejectSuggestion(editor)
+												}
+												onTriggerSuggestion={(type, editor) =>
+													aiSuggestion.fetchSuggestion(type, editor)
+												}
 											/>
 										</ResizablePanel>
 

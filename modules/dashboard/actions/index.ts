@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 
 export const toggleStarMarked = async (
 	playgroundId: string,
-	isChecked: boolean
+	isChecked: boolean,
 ) => {
 	const user = await currentUser();
 	const userId = user?.id;
@@ -113,7 +113,7 @@ export const deleteProjectById = async (id: string) => {
 
 export const editProjectById = async (
 	id: string,
-	data: { title: string; description: string }
+	data: { title: string; description: string },
 ) => {
 	try {
 		await db.playground.update({
@@ -128,7 +128,7 @@ export const editProjectById = async (
 	}
 };
 
-export const duplicateProjectById = async (id: string) => {
+export const duplicateProjectById = async (id: string): Promise<void> => {
 	try {
 		const originalPlayground = await db.playground.findUnique({
 			where: { id },
@@ -137,7 +137,7 @@ export const duplicateProjectById = async (id: string) => {
 			throw new Error("Original playground not found");
 		}
 
-		const duplicatedPlayground = await db.playground.create({
+		await db.playground.create({
 			data: {
 				title: `${originalPlayground.title} (Copy)`,
 				description: originalPlayground.description,
@@ -146,8 +146,8 @@ export const duplicateProjectById = async (id: string) => {
 			},
 		});
 		revalidatePath("/dashboard");
-		return duplicatedPlayground;
 	} catch (error) {
 		console.error("Error duplicating playground: ", error);
+		throw error;
 	}
 };
