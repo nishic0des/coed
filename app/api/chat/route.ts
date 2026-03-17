@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import ollama from "ollama";
 import { unknown } from "zod";
 
 interface ChatMessage {
@@ -28,30 +29,32 @@ Always provide clear, practical answers. Use proper code formatting when showing
 		.join("\n\n");
 
 	try {
-		const res = await fetch(
-			"https://sinless-unglamourously-lavone.ngrok-free.dev/api/generate",
-			{
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					model: "qwen3-coder-next:cloud",
-					stream: false,
-					options: {
-						temperature: 0.7,
-						max_tokes: 1000,
-						top_p: 0.9,
-					},
-					prompt: prompt,
-				}),
-			},
-		);
-		const data = await res.json();
-		if (!data.response) {
+		const res = await ollama.chat({
+			// "https://sinless-unglamourously-lavone.ngrok-free.dev/api/generate",
+			// {
+			// 	method: "POST",
+			// 	headers: {
+			// 		"Content-Type": "application/json",
+			// 	},
+			// 	body: JSON.stringify({
+			// 		model: "qwen3-coder-next:cloud",
+			// 		stream: false,
+			// 		options: {
+			// 			temperature: 0.7,
+			// 			max_tokens: 1000,
+			// 			top_p: 0.9,
+			// 		},
+			// 		prompt: prompt,
+			// 	}),
+			// },
+			model: "qwen3.5:397b-cloud",
+			messages: [{ role: "user", content: prompt }],
+		});
+		const data = await res.message.content;
+		if (!data) {
 			throw new Error("Failed to generate response");
 		}
-		return data.response.trim();
+		return data.trim();
 	} catch (error) {
 		console.error("Error generating response: ", error);
 		throw new Error("Failed to generate response");

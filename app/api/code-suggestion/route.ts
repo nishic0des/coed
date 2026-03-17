@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import ollama from "ollama";
 
 interface CodeSuggestionRequest {
 	fileContent: string;
@@ -135,29 +136,14 @@ function buildPrompt(context: CodeContext, suggestionType: string): string {
 
 async function generateSuggestion(prompt: string): Promise<string> {
 	try {
-		const response = await fetch(
-			"https://sinless-unglamourously-lavone.ngrok-free.dev/api/generate",
-			{
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					model: "qwen3-coder-next:cloud",
-					prompt,
-					stream: false,
-					option: {
-						temperature: 0.7,
-					},
-					max_tokens: 300,
-				}),
-			},
-		);
-		if (!response.ok) {
-			throw new Error(`AI Service Error: ${response.statusText}`);
+		const response = await ollama.chat({
+			model: "qwen3-coder-next:cloud",
+			messages: [{ role: "user", content: prompt }],
+		});
+		if (!response) {
+			throw new Error("AI Service Error: No response");
 		}
-		const data = await response.json();
-		let suggestion = data.response;
+		let suggestion = response.message.content;
 		if (suggestion.includes("```")) {
 			const codeMatch = suggestion.match(/```[\w]*\n?([\s\S]*?)```/);
 			suggestion = codeMatch ? codeMatch[1].trim() : suggestion;

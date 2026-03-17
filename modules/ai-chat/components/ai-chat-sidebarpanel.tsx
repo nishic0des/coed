@@ -212,7 +212,7 @@ export const AIChatSidePanel: React.FC<AIChatSidePanelProps> = ({
 					{
 						role: "assistant",
 						content:
-							"Sorry, I encountered an error while processing your request. Please try again.",
+							"I'm currently experiencing connectivity issues with my AI backend. Please try again in a few moments, or contact support if this persists.",
 						timestamp: new Date(),
 						id: Date.now().toString(),
 					},
