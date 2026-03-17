@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
 import ollama from "ollama";
-import { unknown } from "zod";
 
 interface ChatMessage {
 	role: "user" | "assistant";
