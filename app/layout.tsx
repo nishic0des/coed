@@ -19,6 +19,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
 	title: "CoEd - Code Editor",
 	description: "A collaborative code editor with AI-powered suggestions",
+	icons: {
+		icon: "/logo.svg",
+	},
 };
 
 export default async function RootLayout({

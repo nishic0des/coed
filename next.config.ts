@@ -30,6 +30,7 @@ const nextConfig: NextConfig = {
 		serverComponentsExternalPackages: ["@prisma/client"],
 	},
 	// Add headers for WebContainer COOP support
+	// In next.config.ts
 	async headers() {
 		return [
 			{
@@ -37,12 +38,22 @@ const nextConfig: NextConfig = {
 				headers: [
 					{
 						key: "Cross-Origin-Embedder-Policy",
-						value: "require-corp",
+						value: "credentialless", // Changed from "require-corp"
 					},
 					{
 						key: "Cross-Origin-Opener-Policy",
 						value: "same-origin",
 					},
+					{
+						key: "Cross-Origin-Resource-Policy",
+						value: "cross-origin",
+					},
+				],
+			},
+			{
+				// Allow WebContainer iframe sources
+				source: "/api/webcontainer/(.*)",
+				headers: [
 					{
 						key: "Cross-Origin-Resource-Policy",
 						value: "cross-origin",
