@@ -12,6 +12,8 @@ export default function Page() {
 					alt="Hero-Section"
 					height={250}
 					width={250}
+					priority
+					loading="eager"
 					className="rounded-full"
 				/>
 

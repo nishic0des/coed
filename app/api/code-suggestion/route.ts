@@ -1,13 +1,8 @@
+import { auth } from "@/auth";
+import { CodeSuggestionRequestSchema } from "@/lib/api-schemas";
+import { rateLimit } from "@/lib/rate-limit";
 import { type NextRequest, NextResponse } from "next/server";
 import ollama from "ollama";
-
-interface CodeSuggestionRequest {
-	fileContent: string;
-	cursorLine: number;
-	cursorColumn: number;
-	suggestionType: string;
-	fileName?: string;
-}
 
 interface CodeContext {
 	language: string;
@@ -24,19 +19,36 @@ interface CodeContext {
 
 export async function POST(request: NextRequest) {
 	try {
-		const body: CodeSuggestionRequest = await request.json();
+		const session = await auth();
+		if (!session?.user?.id) {
+			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
 
-		const { fileContent, cursorLine, cursorColumn, suggestionType, fileName } =
-			body;
-
-		if (!fileContent || cursorLine < 0 || cursorColumn < 0 || !suggestionType) {
+		const limitResult = rateLimit(`suggestion:${session.user.id}`, {
+			limit: 60,
+			windowMs: 60_000,
+		});
+		if (!limitResult.success) {
 			return NextResponse.json(
+				{ error: "Rate limit exceeded. Please try again later." },
 				{
-					error: "Invalid input parameters",
+					status: 429,
+					headers: { "Retry-After": String(Math.ceil((limitResult.resetAt - Date.now()) / 1000)) },
 				},
+			);
+		}
+
+		const rawBody = await request.json();
+		const parsed = CodeSuggestionRequestSchema.safeParse(rawBody);
+		if (!parsed.success) {
+			return NextResponse.json(
+				{ error: "Invalid request", issues: parsed.error.issues },
 				{ status: 400 },
 			);
 		}
+
+		const { fileContent, cursorLine, cursorColumn, suggestionType, fileName } =
+			parsed.data;
 
 		const context = analyzeCodeContext(
 			fileContent,
@@ -46,12 +58,10 @@ export async function POST(request: NextRequest) {
 		);
 
 		const prompt = buildPrompt(context, suggestionType);
-
 		const suggestion = await generateSuggestion(prompt);
 
 		return NextResponse.json({
 			suggestion,
-			context,
 			metadata: {
 				language: context.language,
 				framework: context.framework,
@@ -59,11 +69,10 @@ export async function POST(request: NextRequest) {
 				generatedAt: new Date().toISOString(),
 			},
 		});
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	} catch (error: any) {
+	} catch (error) {
 		console.error("Context analysis error: ", error);
 		return NextResponse.json(
-			{ error: "Internal server error", message: error.message },
+			{ error: "Internal server error" },
 			{ status: 500 },
 		);
 	}
@@ -135,24 +144,19 @@ function buildPrompt(context: CodeContext, suggestionType: string): string {
 }
 
 async function generateSuggestion(prompt: string): Promise<string> {
-	try {
-		const response = await ollama.chat({
-			model: "qwen3-coder-next:cloud",
-			messages: [{ role: "user", content: prompt }],
-		});
-		if (!response) {
-			throw new Error("AI Service Error: No response");
-		}
-		let suggestion = response.message.content;
-		if (suggestion.includes("```")) {
-			const codeMatch = suggestion.match(/```[\w]*\n?([\s\S]*?)```/);
-			suggestion = codeMatch ? codeMatch[1].trim() : suggestion;
-		}
-		return suggestion;
-	} catch (error) {
-		console.error("Error generating suggestion: ", error);
-		return "//AI suggestion unavailable.";
+	const response = await ollama.chat({
+		model: "qwen3-coder-next:cloud",
+		messages: [{ role: "user", content: prompt }],
+	});
+	if (!response) {
+		throw new Error("AI Service Error: No response");
 	}
+	let suggestion = response.message.content;
+	if (suggestion.includes("```")) {
+		const codeMatch = suggestion.match(/```[\w]*\n?([\s\S]*?)```/);
+		suggestion = codeMatch ? codeMatch[1].trim() : suggestion;
+	}
+	return suggestion;
 }
 
 function detectLanguage(content: string, fileName?: string): string {
@@ -172,7 +176,6 @@ function detectLanguage(content: string, fileName?: string): string {
 		if (ext && extMap[ext]) return extMap[ext];
 	}
 
-	// Content-based detection
 	if (content.includes("interface ") || content.includes(": string"))
 		return "TypeScript";
 	if (content.includes("def ") || content.includes("import ")) return "Python";

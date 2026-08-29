@@ -310,6 +310,7 @@ const TemplateSelectionModal = ({
 															width={40}
 															height={40}
 															className="object-contain"
+															style={{ width: "auto", height: "2.5rem" }}
 														/>
 													</div>
 

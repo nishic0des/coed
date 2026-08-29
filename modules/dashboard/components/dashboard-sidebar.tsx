@@ -74,7 +74,14 @@ export function DashboardSidebar({
 		<Sidebar variant="inset" collapsible="icon" className="border border-r">
 			<SidebarHeader>
 				<div className="flex items-center gap-2 px-4 py-3 justify-center">
-					<Image src={"/logo.svg"} alt="logo" height={60} width={60} />
+					<Image
+						src={"/logo.svg"}
+						alt="logo"
+						height={60}
+						width={60}
+						priority
+						loading="eager"
+					/>
 				</div>
 			</SidebarHeader>
 			<SidebarContent>

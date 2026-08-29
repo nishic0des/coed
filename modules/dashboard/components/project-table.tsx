@@ -60,9 +60,9 @@ interface ProjectTableProps {
 	onUpdateProject?: (
 		id: string,
 		data: { title: string; description: string }
-	) => Promise<void>;
-	onDeleteProject?: (id: string) => Promise<void>;
-	onDuplicateProject?: (id: string) => Promise<void>;
+	) => Promise<{ success: boolean; error?: string }>;
+	onDeleteProject?: (id: string) => Promise<{ success: boolean; error?: string }>;
+	onDuplicateProject?: (id: string) => Promise<{ success: boolean; error?: string }>;
 	onMarkasFavorite?: (id: string) => Promise<void>;
 }
 
@@ -107,7 +107,11 @@ export default function ProjectTable({
 		setIsLoading(true);
 
 		try {
-			await onUpdateProject(selectedProject.id, editData);
+			const result = await onUpdateProject(selectedProject.id, editData);
+			if (!result.success) {
+				toast.error(result.error ?? "Error updating project");
+				return;
+			}
 			setEditDialogOpen(false);
 			toast.success("Poject updated successfully!");
 		} catch (error) {
@@ -153,7 +157,11 @@ export default function ProjectTable({
 		setIsLoading(true);
 
 		try {
-			await onDeleteProject(selectedProject.id);
+			const result = await onDeleteProject(selectedProject.id);
+			if (!result.success) {
+				toast.error(result.error ?? "Failed to delete project");
+				return;
+			}
 			setDeleteDialogOpen(false);
 			setSelectedProject(null);
 			toast.success("Deleted project successfully.");
@@ -167,7 +175,11 @@ export default function ProjectTable({
 		if (!onDuplicateProject) return;
 		setIsLoading(true);
 		try {
-			await onDuplicateProject(project.id);
+			const result = await onDuplicateProject(project.id);
+			if (!result.success) {
+				toast.error(result.error ?? "Failed to duplicate project");
+				return;
+			}
 			toast.success("Duplicated project successfully.");
 		} catch (error) {
 			toast.error("Failed to dulpicate project");

@@ -1,17 +1,17 @@
+import { auth } from "@/auth";
+import { ChatRequestSchema } from "@/lib/api-schemas";
+import { rateLimit } from "@/lib/rate-limit";
 import { type NextRequest, NextResponse } from "next/server";
 import ollama from "ollama";
+
+const DEFAULT_MODEL = "qwen3.5:397b-cloud";
 
 interface ChatMessage {
 	role: "user" | "assistant";
 	content: string;
 }
 
-interface ChatRequest {
-	message: string;
-	history: ChatMessage[];
-}
-
-async function generateAIResponse(messages: ChatMessage[]): Promise<string> {
+function buildPrompt(messages: ChatMessage[]): string {
 	const systemPrompt = `You are a helpful AI coding assistant. You help developers with:
 - Code explanations and debugging
 - Best practices and architecture advice  
@@ -23,93 +23,128 @@ Always provide clear, practical answers. Use proper code formatting when showing
 
 	const fullMessages = [{ role: "user", content: systemPrompt }, ...messages];
 
-	const prompt = fullMessages
+	return fullMessages
 		.map((msg) => `${msg.role}:${msg.content}`)
 		.join("\n\n");
+}
 
-	try {
-		const res = await ollama.chat({
-			// "https://sinless-unglamourously-lavone.ngrok-free.dev/api/generate",
-			// {
-			// 	method: "POST",
-			// 	headers: {
-			// 		"Content-Type": "application/json",
-			// 	},
-			// 	body: JSON.stringify({
-			// 		model: "qwen3-coder-next:cloud",
-			// 		stream: false,
-			// 		options: {
-			// 			temperature: 0.7,
-			// 			max_tokens: 1000,
-			// 			top_p: 0.9,
-			// 		},
-			// 		prompt: prompt,
-			// 	}),
-			// },
-			model: "qwen3.5:397b-cloud",
-			messages: [{ role: "user", content: prompt }],
-		});
-		const data = await res.message.content;
-		if (!data) {
-			throw new Error("Failed to generate response");
-		}
-		return data.trim();
-	} catch (error) {
-		console.error("Error generating response: ", error);
+async function generateAIResponse(
+	messages: ChatMessage[],
+	model: string,
+): Promise<string> {
+	const prompt = buildPrompt(messages);
+
+	const res = await ollama.chat({
+		model,
+		messages: [{ role: "user", content: prompt }],
+	});
+
+	const data = res.message.content;
+	if (!data) {
 		throw new Error("Failed to generate response");
 	}
+	return data.trim();
+}
+
+async function streamAIResponse(
+	messages: ChatMessage[],
+	model: string,
+): Promise<ReadableStream<Uint8Array>> {
+	const prompt = buildPrompt(messages);
+	const encoder = new TextEncoder();
+
+	const ollamaStream = await ollama.chat({
+		model,
+		messages: [{ role: "user", content: prompt }],
+		stream: true,
+	});
+
+	return new ReadableStream({
+		async start(controller) {
+			try {
+				for await (const chunk of ollamaStream) {
+					const content = chunk.message?.content;
+					if (content) {
+						controller.enqueue(encoder.encode(content));
+					}
+				}
+				controller.close();
+			} catch (error) {
+				controller.error(error);
+			}
+		},
+	});
 }
 
 export async function POST(req: NextRequest) {
 	try {
-		const body: ChatRequest = await req.json();
-		const { message, history = [] } = body;
+		const session = await auth();
+		if (!session?.user?.id) {
+			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
 
-		if (!message || typeof message !== "string") {
+		const limitResult = rateLimit(`chat:${session.user.id}`, {
+			limit: 20,
+			windowMs: 60_000,
+		});
+		if (!limitResult.success) {
 			return NextResponse.json(
-				{ error: "Message is required and must be a string" },
+				{ error: "Rate limit exceeded. Please try again later." },
+				{
+					status: 429,
+					headers: {
+						"Retry-After": String(
+							Math.ceil((limitResult.resetAt - Date.now()) / 1000),
+						),
+					},
+				},
+			);
+		}
+
+		const rawBody = await req.json();
+		const parsed = ChatRequestSchema.safeParse(rawBody);
+		if (!parsed.success) {
+			return NextResponse.json(
+				{ error: "Invalid request", issues: parsed.error.issues },
 				{ status: 400 },
 			);
 		}
 
-		const validHistory = Array.isArray(history)
-			? history.filter(
-					(msg) =>
-						msg &&
-						typeof msg === "object" &&
-						typeof msg.role === "string" &&
-						typeof msg.content === "string" &&
-						["user", "assistant"].includes(msg.role),
-				)
-			: [];
-
-		const recentHistory = validHistory.slice(-10);
+		const { message, history, model, stream } = parsed.data;
+		const recentHistory = history.slice(-10);
+		const selectedModel = model ?? DEFAULT_MODEL;
 
 		const messages: ChatMessage[] = [
 			...recentHistory,
 			{ role: "user", content: message },
 		];
 
-		const res = await generateAIResponse(messages);
+		if (stream) {
+			const body = await streamAIResponse(messages, selectedModel);
+			return new Response(body, {
+				headers: {
+					"Content-Type": "text/plain; charset=utf-8",
+					"Cache-Control": "no-cache",
+				},
+			});
+		}
+
+		const res = await generateAIResponse(messages, selectedModel);
 
 		return NextResponse.json({
 			response: res,
+			model: selectedModel,
 			timestamp: new Date().toISOString(),
 		});
 	} catch (error) {
 		console.error("Chat API Error: ", error);
-		const errorMessage =
-			error instanceof Error ? error.message : "Unknown error";
 
 		return NextResponse.json(
 			{
 				error: "Failed to generate AI response",
-				details: errorMessage,
 				timestamp: new Date().toISOString(),
 			},
-			{
-				status: 500,
-			},
+			{ status: 500 },
 		);
 	}
 }

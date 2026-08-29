@@ -36,6 +36,8 @@ export default function Header() {
 											alt="Logo"
 											height={60}
 											width={60}
+											priority
+											loading="eager"
 											className="rounded-full zoom-in-70"
 										/>
 

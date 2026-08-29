@@ -7,7 +7,7 @@ import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 
 import { usePlayground } from "@/modules/playground/hooks/usePlayground";
 
-import { TooltipProvider } from "@radix-ui/react-tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { useParams } from "next/navigation";
 import LoadingStep from "@/modules/playground/components/loader";
@@ -128,34 +128,28 @@ const MainPlaygroundPage = () => {
 	const hasUnsavedChanges = openFiles.some((file) => file.hasUnsavedChanges);
 
 	const [isPreviewVisible, setIsPreviewVisible] = useState(true);
+	const [previewReloadKey, setPreviewReloadKey] = useState(0);
 
 	const aiSuggestion = useAISuggestions();
-
-	useEffect(() => {
-		console.log("🔍 isPreviewVisible:", isPreviewVisible);
-
-		console.log("🔍 instance:", instance);
-
-		console.log("🔍 containerLoading:", containerLoading);
-
-		console.log("🔍 containerError:", containerError);
-
-		if (!isPreviewVisible) return;
-	}, [isPreviewVisible, instance, containerLoading, containerError]);
 
 	const handleFileSelect = (file: TemplateFile) => {
 		openFile(file);
 	};
 
 	const handleSave = useCallback(
-		// eslint-disable-next-line react-hooks/preserve-manual-memoization
-		async (fileId?: string) => {
+		async (
+			fileId?: string,
+			contentOverride?: string,
+			options?: { reloadPreview?: boolean },
+		) => {
 			const targetedFileId = fileId || activeFileId;
 			if (!targetedFileId) return;
 
 			const fileToSave = openFiles.find((f) => f.id === targetedFileId);
 
 			if (!fileToSave) return;
+
+			const content = contentOverride ?? fileToSave.content;
 
 			const latestTemplateData = useFileExplorer.getState().templateData;
 			if (!latestTemplateData) return;
@@ -171,42 +165,48 @@ const MainPlaygroundPage = () => {
 				const updatedTemplateData = JSON.parse(
 					JSON.stringify(latestTemplateData),
 				);
-				const updateFileContent = (items: any[]): any[] =>
+				const updateFileContentInTree = (items: any[]): any[] =>
 					items.map((item) => {
 						if ("folderName" in item) {
-							return { ...item, items: updateFileContent(item.items) };
-						} else if (
+							return {
+								...item,
+								items: updateFileContentInTree(item.items),
+							};
+						}
+						if (
 							item.filename === fileToSave.filename &&
 							item.fileExtension === fileToSave.fileExtension
 						) {
-							return { ...item, content: fileToSave.content };
+							return { ...item, content };
 						}
 						return item;
 					});
-				updatedTemplateData.items = updateFileContent(
+				updatedTemplateData.items = updateFileContentInTree(
 					updatedTemplateData.items,
 				);
 
-				await writeFileSync(filePath, fileToSave.content);
-				lastSynedContent.current.set(fileToSave.id, fileToSave.content);
-				if (instance && instance.fs) {
-					await instance.fs.writeFile(filePath, fileToSave.content);
+				if (instance) {
+					await writeFileSync(filePath, content);
 				}
 
-				const newTemplateData = await saveTemplateData(updatedTemplateData);
+				lastSynedContent.current.set(fileToSave.id, content);
+				await saveTemplateData(updatedTemplateData);
 				setTemplateData(updatedTemplateData);
 
 				const updatedOpenFiles = openFiles.map((f) =>
 					f.id === targetedFileId
 						? {
 								...f,
-								content: fileToSave.content,
-								originalContent: fileToSave.content,
+								content,
+								originalContent: content,
 								hasUnsavedChanges: false,
 							}
 						: f,
 				);
 				setOpenFiles(updatedOpenFiles);
+				if (options?.reloadPreview !== false) {
+					setPreviewReloadKey((key) => key + 1);
+				}
 				toast.success("File saved successfully");
 			} catch (error) {
 				console.error("Failed to save file", error);
@@ -221,7 +221,13 @@ const MainPlaygroundPage = () => {
 			instance,
 			saveTemplateData,
 			setTemplateData,
+			setOpenFiles,
 		],
+	);
+
+	const handleSaveFromEditor = useCallback(
+		(content: string) => handleSave(undefined, content),
+		[handleSave],
 	);
 
 	const handleSaveAll = async () => {
@@ -232,7 +238,12 @@ const MainPlaygroundPage = () => {
 			return;
 		}
 		try {
-			await Promise.all(unsavedFiles.map((file) => handleSave(file.id)));
+			await Promise.all(
+				unsavedFiles.map((file) =>
+					handleSave(file.id, undefined, { reloadPreview: false }),
+				),
+			);
+			setPreviewReloadKey((key) => key + 1);
 			toast.success("All files saved successfully");
 		} catch (error) {
 			console.error("Failed to save files", error);
@@ -245,6 +256,10 @@ const MainPlaygroundPage = () => {
 			if (e.ctrlKey && e.key === "s") {
 				e.preventDefault();
 				handleSave();
+			}
+			if (e.ctrlKey && e.shiftKey && e.key === "S") {
+				e.preventDefault();
+				handleSaveAll();
 			}
 		};
 		window.addEventListener("keydown", handleKeyDown);
@@ -412,7 +427,7 @@ const MainPlaygroundPage = () => {
 
 							<div className="flex items-center gap-1">
 								<Tooltip>
-									<TooltipTrigger>
+									<TooltipTrigger asChild>
 										<Button
 											size="sm"
 											variant="outline"
@@ -426,7 +441,7 @@ const MainPlaygroundPage = () => {
 								</Tooltip>
 
 								<Tooltip>
-									<TooltipTrigger>
+									<TooltipTrigger asChild>
 										<Button
 											size="sm"
 											variant="outline"
@@ -522,50 +537,80 @@ const MainPlaygroundPage = () => {
 								</div>
 
 								<div className="flex-1">
-									<ResizablePanelGroup
-										direction="horizontal"
-										className="h-full">
-										<ResizablePanel defaultSize={isPreviewVisible ? 50 : 100}>
-											<PlaygroundEditor
-												activeFile={activeFile}
-												content={activeFile?.content || ""}
-												onContentChange={(value) => {
-													activeFileId &&
-														updateFileContent(activeFileId, value);
-												}}
-												suggestion={aiSuggestion.suggestion}
-												suggestionLoading={aiSuggestion.isLoading}
-												suggestionPosition={aiSuggestion.position}
-												onAcceptSuggestion={(editor, monaco) =>
-													aiSuggestion.acceptSuggestion(editor, monaco)
-												}
-												onRejectSuggestion={(editor) =>
-													aiSuggestion.rejectSuggestion(editor)
-												}
-												onTriggerSuggestion={(type, editor) =>
-													aiSuggestion.fetchSuggestion(type, editor)
-												}
-											/>
-										</ResizablePanel>
+									{isPreviewVisible && instance ? (
+										<ResizablePanelGroup
+											direction="horizontal"
+											className="h-full">
+											<ResizablePanel
+												id="editor-panel"
+												defaultSize={50}
+												minSize={25}
+												order={1}>
+												<PlaygroundEditor
+													activeFile={activeFile}
+													content={activeFile?.content || ""}
+													onContentChange={(value) => {
+														activeFileId &&
+															updateFileContent(activeFileId, value);
+													}}
+													suggestion={aiSuggestion.suggestion}
+													suggestionLoading={aiSuggestion.isLoading}
+													suggestionPosition={aiSuggestion.position}
+													onAcceptSuggestion={(editor, monaco) =>
+														aiSuggestion.acceptSuggestion(editor, monaco)
+													}
+													onRejectSuggestion={(editor) =>
+														aiSuggestion.rejectSuggestion(editor)
+													}
+													onTriggerSuggestion={(type, editor) =>
+														aiSuggestion.fetchSuggestion(type, editor)
+													}
+													onSave={handleSaveFromEditor}
+												/>
+											</ResizablePanel>
 
-										{isPreviewVisible && instance && (
-											<>
-												<ResizableHandle />
+											<ResizableHandle />
 
-												<ResizablePanel defaultSize={50}>
-													<WebContainerPreview
-														templateData={templateData!}
-														instance={instance}
-														writeFileSync={writeFileSync}
-														isLoading={containerLoading}
-														error={containerError}
-														serverUrl={serverUrl!}
-														forceResetup={false}
-													/>
-												</ResizablePanel>
-											</>
-										)}
-									</ResizablePanelGroup>
+											<ResizablePanel
+												id="preview-panel"
+												defaultSize={50}
+												minSize={25}
+												order={2}>
+												<WebContainerPreview
+													templateData={templateData!}
+													instance={instance}
+													writeFileSync={writeFileSync}
+													isLoading={containerLoading}
+													error={containerError}
+													serverUrl={serverUrl!}
+													forceResetup={false}
+													reloadToken={previewReloadKey}
+												/>
+											</ResizablePanel>
+										</ResizablePanelGroup>
+									) : (
+										<PlaygroundEditor
+											activeFile={activeFile}
+											content={activeFile?.content || ""}
+											onContentChange={(value) => {
+												activeFileId &&
+													updateFileContent(activeFileId, value);
+											}}
+											suggestion={aiSuggestion.suggestion}
+											suggestionLoading={aiSuggestion.isLoading}
+											suggestionPosition={aiSuggestion.position}
+											onAcceptSuggestion={(editor, monaco) =>
+												aiSuggestion.acceptSuggestion(editor, monaco)
+											}
+											onRejectSuggestion={(editor) =>
+												aiSuggestion.rejectSuggestion(editor)
+											}
+											onTriggerSuggestion={(type, editor) =>
+												aiSuggestion.fetchSuggestion(type, editor)
+											}
+											onSave={handleSaveFromEditor}
+										/>
+									)}
 								</div>
 							</div>
 						) : (

@@ -42,7 +42,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import "katex/dist/katex.min.css";
 import Image from "next/image";
-import Stream from "stream";
+import {
+	loadChatMessages,
+	saveChatMessage,
+} from "@/modules/ai-chat/actions";
 
 interface ChatMessage {
 	role: "user" | "assistant";
@@ -116,9 +119,25 @@ export const AIChatSidePanel: React.FC<AIChatSidePanelProps> = ({
 	const [filterType, setFilterType] = useState<string>("all");
 	const [autoSave, setAutoSave] = useState(true);
 	const [streamResponse, setStreamResponse] = useState(true);
-	const [model, setModel] = useState<string>("gpt-6");
+	const [model, setModel] = useState<string>("qwen3.5:397b-cloud");
 
 	const messagesEndRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		if (!isOpen) return;
+		loadChatMessages().then((result) => {
+			if (result.success && result.data.length > 0) {
+				setMessages(
+					result.data.map((msg, i) => ({
+						id: `loaded-${i}`,
+						role: msg.role as "user" | "assistant",
+						content: msg.content,
+						timestamp: new Date(msg.createdAt),
+					})),
+				);
+			}
+		});
+	}, [isOpen]);
 
 	const scrollToBottom = () => {
 		if (messagesEndRef.current) {
@@ -171,8 +190,12 @@ export const AIChatSidePanel: React.FC<AIChatSidePanelProps> = ({
 		setInput("");
 		setIsLoading(true);
 
+		if (autoSave) {
+			saveChatMessage("user", newMessage.content);
+		}
+
 		try {
-			const contextualMessage = getChatModePrompt(chatMode, input.trim());
+			const contextualMessage = getChatModePrompt(chatMode, newMessage.content);
 
 			const response = await fetch("/api/chat", {
 				method: "POST",
@@ -192,20 +215,65 @@ export const AIChatSidePanel: React.FC<AIChatSidePanelProps> = ({
 			});
 
 			if (response.ok) {
-				const data = await response.json();
+				const contentType = response.headers.get("Content-Type") ?? "";
 
-				setMessages((prev) => [
-					...prev,
-					{
-						role: "assistant",
-						content: data.response,
-						timestamp: new Date(),
-						id: Date.now().toString(),
-						type: messageType,
-						tokens: data.tokens,
-						model: data.model || "AI Assistant",
-					},
-				]);
+				if (contentType.includes("text/plain")) {
+					const assistantId = Date.now().toString();
+					setMessages((prev) => [
+						...prev,
+						{
+							role: "assistant",
+							content: "",
+							timestamp: new Date(),
+							id: assistantId,
+							type: messageType,
+							model,
+						},
+					]);
+
+					const reader = response.body?.getReader();
+					const decoder = new TextDecoder();
+					let fullContent = "";
+
+					if (reader) {
+						while (true) {
+							const { done, value } = await reader.read();
+							if (done) break;
+							const chunk = decoder.decode(value, { stream: true });
+							fullContent += chunk;
+							setMessages((prev) =>
+								prev.map((msg) =>
+									msg.id === assistantId
+										? { ...msg, content: fullContent }
+										: msg,
+								),
+							);
+						}
+					}
+
+					if (autoSave && fullContent) {
+						saveChatMessage("assistant", fullContent);
+					}
+				} else {
+					const data = await response.json();
+
+					setMessages((prev) => [
+						...prev,
+						{
+							role: "assistant",
+							content: data.response,
+							timestamp: new Date(),
+							id: Date.now().toString(),
+							type: messageType,
+							tokens: data.tokens,
+							model: data.model || model,
+						},
+					]);
+
+					if (autoSave) {
+						saveChatMessage("assistant", data.response);
+					}
+				}
 			} else {
 				setMessages((prev) => [
 					...prev,
@@ -286,7 +354,14 @@ export const AIChatSidePanel: React.FC<AIChatSidePanelProps> = ({
 						<div className="flex items-center justify-between p-6">
 							<div className="flex items-center gap-3">
 								<div className="relative w-10 h-10 border rounded-full flex flex-col justify-center items-center">
-									<Image src={"/logo.svg"} alt="Logo" width={28} height={28} />
+									<Image
+										src={"/logo.svg"}
+										alt="Logo"
+										width={28}
+										height={28}
+										priority
+										loading="eager"
+									/>
 								</div>
 								<div>
 									<h2 className="text-lg font-semibold text-zinc-100">
@@ -375,7 +450,8 @@ export const AIChatSidePanel: React.FC<AIChatSidePanelProps> = ({
 											value={model}
 											onChange={(e) => setModel(e.target.value)}
 											className="bg-zinc-900/60 border border-zinc-800 rounded px-2 py-1 text-zinc-200 focus:outline-none">
-											<option value="gpt-6">gpt-6</option>
+											<option value="qwen3.5:397b-cloud">Qwen 3.5</option>
+											<option value="qwen3-coder-next:cloud">Qwen Coder</option>
 											<option value="codellama">codellama</option>
 											<option value="llama2">llama2</option>
 										</select>

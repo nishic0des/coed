@@ -7,7 +7,8 @@ export default async function DashboardLayout({
 }: {
 	children: React.ReactNode;
 }) {
-	const playgroundData = await getAllPlaygroundForUser();
+	const result = await getAllPlaygroundForUser();
+	const playgroundData = result.success ? result.data : [];
 
 	const technologyMap: Record<string, string> = {
 		REACT: "Zap",
@@ -18,7 +19,7 @@ export default async function DashboardLayout({
 		ANGULAR: "Terminal",
 	};
 
-	const formattedPlaygroundData = playgroundData?.map((item) => ({
+	const formattedPlaygroundData = playgroundData.map((item) => ({
 		id: item.id,
 		name: item.title,
 		icon: technologyMap[item.template] || "Code2",
@@ -28,9 +29,7 @@ export default async function DashboardLayout({
 	return (
 		<SidebarProvider>
 			<div className="flex min-h-screen w-full overflow-x-hidden">
-				<DashboardSidebar
-					initialPlaygroundData={formattedPlaygroundData ?? []}
-				/>
+				<DashboardSidebar initialPlaygroundData={formattedPlaygroundData} />
 				<main className="flex-1">{children}</main>
 			</div>
 		</SidebarProvider>

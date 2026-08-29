@@ -20,6 +20,7 @@ interface PlaygroundEditorProps {
 	onAcceptSuggestion: (editor: any, monaco: any) => void;
 	onRejectSuggestion: (editor: any) => void;
 	onTriggerSuggestion: (type: string, editor: any) => void;
+	onSave?: (content: string) => void | Promise<void>;
 }
 
 export const PlaygroundEditor = ({
@@ -32,9 +33,11 @@ export const PlaygroundEditor = ({
 	onAcceptSuggestion,
 	onRejectSuggestion,
 	onTriggerSuggestion,
+	onSave,
 }: PlaygroundEditorProps) => {
 	const editorRef = useRef<any>(null);
 	const monacoRef = useRef<Monaco | null>(null);
+	const onSaveRef = useRef(onSave);
 	const inlineCompletionProviderRef = useRef<any>(null);
 	const currentSuggestionRef = useRef<{
 		text: string;
@@ -45,6 +48,10 @@ export const PlaygroundEditor = ({
 	const suggestionAcceptedRef = useRef(false);
 	const suggestionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 	const tabCommandRef = useRef<any>(null);
+
+	useEffect(() => {
+		onSaveRef.current = onSave;
+	}, [onSave]);
 
 	// Generate unique ID for each suggestion
 	const generateSuggestionId = () =>
@@ -385,6 +392,12 @@ export const PlaygroundEditor = ({
 		configureMonaco(monaco);
 
 		// Keyboard shortcuts
+		editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+			const value = editor.getValue();
+			onContentChange(value);
+			void onSaveRef.current?.(value);
+		});
+
 		editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Space, () => {
 			console.log("Ctrl+Space pressed, triggering suggestion");
 			onTriggerSuggestion("completion", editor);

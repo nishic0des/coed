@@ -34,10 +34,12 @@ export const usePlayground = (id: string): UsePlaygroundReturn => {
 			setIsLoading(true);
 			setError(null);
 
-			const data = await getPlaygroundById(id);
-			// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-			// @ts-ignore
-			setPlaygroundData(data);
+			const result = await getPlaygroundById(id);
+			if (!result.success) {
+				throw new Error(result.error);
+			}
+			const data = result.data;
+			setPlaygroundData({ ...data, id });
 
 			const rawContent = data?.templateFiles?.[0]?.content;
 
@@ -81,11 +83,9 @@ export const usePlayground = (id: string): UsePlaygroundReturn => {
 
 	const saveTemplateData = useCallback(
 		async (data: TemplateFolder) => {
-			try {
-				await SaveUpdatedCode(id, data);
-			} catch (error) {
-				console.error("Error saving template data:", error);
-				throw error;
+			const result = await SaveUpdatedCode(id, data);
+			if (!result.success) {
+				throw new Error(result.error);
 			}
 		},
 		[id],

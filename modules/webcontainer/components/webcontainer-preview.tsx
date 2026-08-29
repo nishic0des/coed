@@ -19,6 +19,7 @@ interface WebContainerPreviewProps {
 	writeFileSync: (path: string, content: string) => Promise<void>;
 	forceResetup: boolean;
 	onServerReady?: (url: string) => void;
+	reloadToken?: number;
 }
 const WebContainerPreview = ({
 	templateData,
@@ -29,17 +30,10 @@ const WebContainerPreview = ({
 	writeFileSync,
 	forceResetup = false,
 	onServerReady,
+	reloadToken = 0,
 }: WebContainerPreviewProps) => {
-	console.log("🎯 WebContainerPreview props:", {
-		templateData: !!templateData,
-		serverUrl,
-		error,
-		instance: !!instance,
-		isLoading,
-		forceResetup,
-	});
-
 	const [previewUrl, setPreviewUrl] = useState<string>("");
+	const iframeRef = useRef<HTMLIFrameElement>(null);
 	const [loadingState, setLoadingState] = useState({
 		transforming: false,
 		mounting: false,
@@ -87,42 +81,17 @@ const WebContainerPreview = ({
 	}, [templateData?.items?.length, isSetupComplete]);
 
 	useEffect(() => {
-		console.log("🎯 useEffect triggered:", {
-			hasInstance: !!instance,
-			isSetupComplete,
-			isSetupInProgress,
-			hasOnServerReady: !!onServerReady,
-			timestamp: new Date().toISOString(),
-		});
-
 		async function setupContainer() {
-			console.log("🔧 setupContainer called:", {
-				instance: !!instance,
-				isSetupComplete,
-				isSetupInProgress,
-				setupInitiated: setupInitiatedRef.current,
-				timestamp: new Date().toISOString(),
-			});
-
 			if (
 				!instance ||
 				isSetupComplete ||
 				isSetupInProgress ||
 				setupInitiatedRef.current
 			) {
-				console.log("🔧 setupContainer early return:", {
-					hasInstance: !!instance,
-					isSetupComplete,
-					isSetupInProgress,
-					setupInitiated: setupInitiatedRef.current,
-				});
 				return;
 			}
 
-			// Mark setup as initiated to prevent duplicates
 			setupInitiatedRef.current = true;
-
-			console.log("🚀 Starting WebContainer setup...");
 			try {
 				setIsSetupInProgress(true);
 				setSetupError(null);
@@ -131,10 +100,6 @@ const WebContainerPreview = ({
 					const packageJsonExists = await instance.fs.readFile(
 						"package.json",
 						"utf8",
-					);
-					console.log(
-						"📦 package.json found:",
-						packageJsonExists.substring(0, 100) + "...",
 					);
 
 					if (packageJsonExists) {
@@ -171,7 +136,9 @@ const WebContainerPreview = ({
 						setLoadingState((prev) => ({ ...prev, starting: true }));
 						return;
 					}
-				} catch (error) {}
+				} catch {
+					// package.json not mounted yet — continue with full setup
+				}
 
 				// Step-1 transform data
 				setLoadingState((prev) => ({ ...prev, transforming: true }));
@@ -223,7 +190,6 @@ const WebContainerPreview = ({
 				}
 
 				const installProcess = await instance.spawn("npm", ["install"]);
-				console.log("📦 npm install started");
 
 				installProcess.output.pipeTo(
 					new WritableStream({
@@ -265,11 +231,8 @@ const WebContainerPreview = ({
 				}
 
 				const startProcess = await instance.spawn("npm", ["run", "dev"]);
-				console.log("🚀 npm run start started");
 
-				// Add server-ready listener (WebContainer handles duplicate prevention)
 				instance.on("server-ready", (port: number, url: string) => {
-					console.log("🌐 Server-ready event received:", { port, url });
 					if (terminalRef.current?.writeToTerminal) {
 						terminalRef.current.writeToTerminal(
 							`🌐 Server ready at ${url}\r\n`,
@@ -286,7 +249,6 @@ const WebContainerPreview = ({
 
 					// Notify parent component
 					if (onServerReady) {
-						console.log("📞 Calling onServerReady with:", url);
 						onServerReady(url);
 					}
 				});
@@ -324,8 +286,17 @@ const WebContainerPreview = ({
 	}, [instance, isSetupComplete, templateData, onServerReady]);
 
 	useEffect(() => {
-		return () => {};
-	}, []);
+		if (!previewUrl || reloadToken === 0) return;
+		const iframe = iframeRef.current;
+		if (!iframe) return;
+
+		try {
+			iframe.contentWindow?.location.reload();
+		} catch {
+			const separator = previewUrl.includes("?") ? "&" : "?";
+			iframe.src = `${previewUrl}${separator}_t=${reloadToken}`;
+		}
+	}, [reloadToken, previewUrl]);
 
 	if (isLoading) {
 		return (
@@ -382,14 +353,6 @@ const WebContainerPreview = ({
 		);
 	};
 
-	console.log("🎬 WebContainerPreview render:", {
-		serverUrl: !!serverUrl,
-		previewUrl: !!previewUrl,
-		serverUrlValue: serverUrl,
-		previewUrlValue: previewUrl,
-		shouldShowPreview: !!previewUrl,
-	});
-
 	return (
 		<div
 			className="h-full w-full flex flex-col"
@@ -435,10 +398,9 @@ const WebContainerPreview = ({
 			) : (
 				<>
 					<div className="flex-1 bg-gray-900" style={{ minHeight: "200px" }}>
-						<div className="p-2 text-center">
-							<div className="mt-2 text-xs">URL: {previewUrl}</div>
-						</div>
+						<div className="p-2 text-center"></div>
 						<iframe
+							ref={iframeRef}
 							src={previewUrl}
 							className="w-full h-full border-none"
 							title="WebContainer Preview"
