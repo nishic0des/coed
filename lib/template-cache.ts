@@ -32,3 +32,7 @@ export function invalidateTemplateCache(templateKey?: string) {
 		cache.clear();
 	}
 }
+
+// Ensure template edits on disk are picked up after deploys / local changes
+invalidateTemplateCache("HONO");
+

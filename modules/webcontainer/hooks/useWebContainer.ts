@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { WebContainer } from "@webcontainer/api";
 import { TemplateFolder } from "@/modules/playground/lib/path-to-json";
 import { getWebContainerInstance } from "@/modules/webcontainer/lib/webcontainer-singleton";
@@ -20,17 +20,21 @@ interface UseWebContainerReturn {
 }
 
 export const useWebContainer = ({
-	templateData: _templateData,
+	templateData,
 }: UseWebContainerProps): UseWebContainerReturn => {
 	const [serverUrl, setServerUrl] = useState<string | null>(null);
 	const [isLoading, setIsLoading] = useState<boolean>(true);
 	const [error, setError] = useState<string | null>(null);
 	const [instance, setInstance] = useState<WebContainer | null>(null);
+	const bootedRef = useRef(false);
+
+	const hasTemplate = Boolean(templateData?.items?.length);
 
 	useEffect(() => {
-		if (!isClient || !_templateData?.items?.length) return;
+		if (!isClient || !hasTemplate || bootedRef.current) return;
 
 		let mounted = true;
+		bootedRef.current = true;
 
 		async function initializeWebContainer() {
 			try {
@@ -47,6 +51,7 @@ export const useWebContainer = ({
 							: "Failed to initialize WebContainer",
 					);
 					setIsLoading(false);
+					bootedRef.current = false;
 				}
 			}
 		}
@@ -56,7 +61,7 @@ export const useWebContainer = ({
 		return () => {
 			mounted = false;
 		};
-	}, [_templateData]);
+	}, [hasTemplate]);
 
 	const writeFileSync = useCallback(
 		async (path: string, content: string) => {
@@ -64,13 +69,18 @@ export const useWebContainer = ({
 				throw new Error("WebContainer instance is not available");
 			}
 			try {
+				// Only write — do not remount the FS or restart the dev server.
+				// Vite / Next HMR picks up the change automatically.
+				await instance.fs.writeFile(path, content);
+			} catch (err) {
+				// If parent dirs are missing (new file), create them then retry
 				const pathParts = path.split("/");
 				const folderPath = pathParts.slice(0, -1).join("/");
 				if (folderPath) {
 					await instance.fs.mkdir(folderPath, { recursive: true });
+					await instance.fs.writeFile(path, content);
+					return;
 				}
-				await instance.fs.writeFile(path, content);
-			} catch (err) {
 				const errorMessage =
 					err instanceof Error ? err.message : "Failed to write file";
 				console.error(`Failed to write file at path ${path}: ${err}`);
@@ -85,6 +95,7 @@ export const useWebContainer = ({
 			instance.teardown();
 			setInstance(null);
 			setServerUrl(null);
+			bootedRef.current = false;
 		}
 	}, [instance]);
 

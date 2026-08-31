@@ -128,7 +128,6 @@ const MainPlaygroundPage = () => {
 	const hasUnsavedChanges = openFiles.some((file) => file.hasUnsavedChanges);
 
 	const [isPreviewVisible, setIsPreviewVisible] = useState(true);
-	const [previewReloadKey, setPreviewReloadKey] = useState(0);
 
 	const aiSuggestion = useAISuggestions();
 
@@ -137,11 +136,7 @@ const MainPlaygroundPage = () => {
 	};
 
 	const handleSave = useCallback(
-		async (
-			fileId?: string,
-			contentOverride?: string,
-			options?: { reloadPreview?: boolean },
-		) => {
+		async (fileId?: string, contentOverride?: string) => {
 			const targetedFileId = fileId || activeFileId;
 			if (!targetedFileId) return;
 
@@ -185,6 +180,8 @@ const MainPlaygroundPage = () => {
 					updatedTemplateData.items,
 				);
 
+				// Write into the live WebContainer FS — Vite/Next HMR updates the
+				// preview in place. Do not remount the iframe or respawn the server.
 				if (instance) {
 					await writeFileSync(filePath, content);
 				}
@@ -204,9 +201,6 @@ const MainPlaygroundPage = () => {
 						: f,
 				);
 				setOpenFiles(updatedOpenFiles);
-				if (options?.reloadPreview !== false) {
-					setPreviewReloadKey((key) => key + 1);
-				}
 				toast.success("File saved successfully");
 			} catch (error) {
 				console.error("Failed to save file", error);
@@ -238,12 +232,7 @@ const MainPlaygroundPage = () => {
 			return;
 		}
 		try {
-			await Promise.all(
-				unsavedFiles.map((file) =>
-					handleSave(file.id, undefined, { reloadPreview: false }),
-				),
-			);
-			setPreviewReloadKey((key) => key + 1);
+			await Promise.all(unsavedFiles.map((file) => handleSave(file.id)));
 			toast.success("All files saved successfully");
 		} catch (error) {
 			console.error("Failed to save files", error);
@@ -584,7 +573,6 @@ const MainPlaygroundPage = () => {
 													error={containerError}
 													serverUrl={serverUrl!}
 													forceResetup={false}
-													reloadToken={previewReloadKey}
 												/>
 											</ResizablePanel>
 										</ResizablePanelGroup>
