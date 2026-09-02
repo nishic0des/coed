@@ -78,6 +78,12 @@ enum Templates{
   EXPRESS
   HONO
   ANGULAR
+  IMPORTED
+}
+
+enum PlaygroundSource {
+  TEMPLATE
+  GITHUB
 }
 
 model Playground{
@@ -85,6 +91,12 @@ model Playground{
   title String
   description String?
   template Templates @default(REACT)
+  sourceType PlaygroundSource @default(TEMPLATE)
+  githubOwner String?
+  githubRepo String?
+  githubBranch String?
+  githubCommitSha String?
+  githubRepoUrl String?
 createdAt DateTime @default(now())
 updatedAt DateTime @updatedAt
 

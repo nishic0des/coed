@@ -21,5 +21,23 @@ export const CodeSuggestionRequestSchema = z.object({
 	fileName: z.string().max(500).optional(),
 });
 
+export const ImportGithubRepoSchema = z.object({
+	repoUrl: z.string().min(1).max(500),
+	branch: z.string().max(255).optional(),
+	title: z.string().min(1).max(200).optional(),
+});
+
+export const SyncGithubRepoSchema = z.object({
+	playgroundId: z.string().min(1).max(100),
+});
+
+export const ListGithubReposSchema = z.object({
+	search: z.string().max(200).optional(),
+	page: z.number().int().min(1).max(100).optional().default(1),
+});
+
 export type ChatRequest = z.infer<typeof ChatRequestSchema>;
 export type CodeSuggestionRequest = z.infer<typeof CodeSuggestionRequestSchema>;
+export type ImportGithubRepoRequest = z.infer<typeof ImportGithubRepoSchema>;
+export type SyncGithubRepoRequest = z.infer<typeof SyncGithubRepoSchema>;
+export type ListGithubReposRequest = z.infer<typeof ListGithubReposSchema>;

@@ -13,6 +13,12 @@ export interface Project {
 	title: string;
 	description: string | null;
 	template: string;
+	sourceType?: string;
+	githubOwner?: string | null;
+	githubRepo?: string | null;
+	githubBranch?: string | null;
+	githubCommitSha?: string | null;
+	githubRepoUrl?: string | null;
 	createdAt: Date;
 	updatedAt: Date;
 	userId: string;

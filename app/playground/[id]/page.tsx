@@ -67,12 +67,19 @@ import { findFilePath } from "@/modules/playground/lib";
 import { toast } from "sonner";
 import ToggleAI from "@/modules/playground/components/toggle-ai";
 import { useAISuggestions } from "@/modules/playground/hooks/useAISuggestion";
+import GithubSyncButton from "@/modules/playground/components/github-sync-button";
 
 const MainPlaygroundPage = () => {
 	const { id } = useParams<{ id: string }>();
 
-	const { playgroundData, templateData, isLoading, error, saveTemplateData } =
-		usePlayground(id);
+	const {
+		playgroundData,
+		templateData,
+		isLoading,
+		error,
+		saveTemplateData,
+		loadPlayground,
+	} = usePlayground(id);
 
 	const {
 		activeFileId,
@@ -415,13 +422,27 @@ const MainPlaygroundPage = () => {
 							</div>
 
 							<div className="flex items-center gap-1">
+								{playgroundData?.sourceType === "GITHUB" &&
+									playgroundData.githubOwner &&
+									playgroundData.githubRepo &&
+									playgroundData.githubBranch && (
+										<GithubSyncButton
+											playgroundId={id}
+											owner={playgroundData.githubOwner}
+											repo={playgroundData.githubRepo}
+											branch={playgroundData.githubBranch}
+											commitSha={playgroundData.githubCommitSha}
+											onSynced={loadPlayground}
+										/>
+									)}
+
 								<Tooltip>
 									<TooltipTrigger asChild>
 										<Button
 											size="sm"
 											variant="outline"
 											onClick={() => handleSave()}
-											disabled={!activeFile || activeFile.hasUnsavedChanges}>
+											disabled={!activeFile || !activeFile.hasUnsavedChanges}>
 											<Save className="h-4 w-4" />
 										</Button>
 									</TooltipTrigger>

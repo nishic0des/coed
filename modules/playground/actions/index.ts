@@ -9,6 +9,12 @@ import type { TemplateFile } from "@prisma/client";
 
 type PlaygroundData = {
 	title: string;
+	sourceType: string;
+	githubOwner: string | null;
+	githubRepo: string | null;
+	githubBranch: string | null;
+	githubCommitSha: string | null;
+	githubRepoUrl: string | null;
 	templateFiles: { content: unknown }[];
 };
 
@@ -25,6 +31,12 @@ export const getPlaygroundById = async (
 			where: { id },
 			select: {
 				title: true,
+				sourceType: true,
+				githubOwner: true,
+				githubRepo: true,
+				githubBranch: true,
+				githubCommitSha: true,
+				githubRepoUrl: true,
 				templateFiles: {
 					select: { content: true },
 				},

@@ -158,6 +158,12 @@ export const duplicateProjectById = async (
 				title: `${originalPlayground.title} (Copy)`,
 				description: originalPlayground.description,
 				template: originalPlayground.template,
+				sourceType: originalPlayground.sourceType,
+				githubOwner: originalPlayground.githubOwner,
+				githubRepo: originalPlayground.githubRepo,
+				githubBranch: originalPlayground.githubBranch,
+				githubCommitSha: originalPlayground.githubCommitSha,
+				githubRepoUrl: originalPlayground.githubRepoUrl,
 				userId: user.id,
 			},
 		});

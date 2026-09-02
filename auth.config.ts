@@ -7,10 +7,18 @@ export default {
 		GitHub({
 			clientId: process.env.AUTH_GITHUB_ID,
 			clientSecret: process.env.AUTH_GITHUB_SECRET,
+			// GitHub returns `iss=https://github.com/login/oauth` (RFC 9207).
+			// Without this, Auth.js compares against https://authjs.dev and fails.
+			issuer: "https://github.com/login/oauth",
+			allowDangerousEmailAccountLinking: true,
+			authorization: {
+				params: { scope: "read:user user:email repo" },
+			},
 		}),
 		Google({
 			clientId: process.env.AUTH_GOOGLE_ID,
 			clientSecret: process.env.AUTH_GOOGLE_SECRET,
+			allowDangerousEmailAccountLinking: true,
 		}),
 	],
 } satisfies NextAuthConfig;

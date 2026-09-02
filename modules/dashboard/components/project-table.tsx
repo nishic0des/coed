@@ -51,6 +51,7 @@ import {
 	Copy,
 	Download,
 	Eye,
+	Github,
 } from "lucide-react";
 import { toast } from "sonner";
 import MarkedToggleButton from "./marked-toggle";
@@ -218,17 +219,38 @@ export default function ProjectTable({
 											className="hover:underline">
 											<span className="font-semibold">{project.title}</span>
 										</Link>
-										<span className="text-sm text-gray-500 line-clamp-1">
-											{project.description}
-										</span>
+										{project.sourceType === "GITHUB" &&
+										project.githubOwner &&
+										project.githubRepo ? (
+											<span className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
+												<Github className="h-3.5 w-3.5" />
+												{project.githubOwner}/{project.githubRepo}
+												{project.githubBranch
+													? ` · ${project.githubBranch}`
+													: ""}
+											</span>
+										) : (
+											<span className="text-sm text-gray-500 line-clamp-1">
+												{project.description}
+											</span>
+										)}
 									</div>
 								</TableCell>
 								<TableCell>
-									<Badge
-										variant="outline"
-										className="bg-[#E93F3F15] text-[#E93F3F] border-[#E93F3F]">
-										{project.template}
-									</Badge>
+									{project.sourceType === "GITHUB" ? (
+										<Badge
+											variant="outline"
+											className="bg-[#24292F15] text-[#24292F] dark:text-foreground border-[#24292F40] gap-1">
+											<Github className="h-3 w-3" />
+											GitHub
+										</Badge>
+									) : (
+										<Badge
+											variant="outline"
+											className="bg-[#E93F3F15] text-[#E93F3F] border-[#E93F3F]">
+											{project.template}
+										</Badge>
+									)}
 								</TableCell>
 								<TableCell>
 									{format(new Date(project.createdAt), "MMM d, yyyy")}
