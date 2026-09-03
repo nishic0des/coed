@@ -1,6 +1,6 @@
-export const publicRoutes: string[] = [];
+export const publicRoutes: string[] = ["/"];
 
-export const protectedRouted: string[] = ["/"];
+export const protectedRoutes: string[] = ["/dashboard", "/playground/*"];
 
 export const authRoutes: string[] = ["/auth/sign-in"];
 
