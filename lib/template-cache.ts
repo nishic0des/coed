@@ -35,4 +35,4 @@ export function invalidateTemplateCache(templateKey?: string) {
 
 // Ensure template edits on disk are picked up after deploys / local changes
 invalidateTemplateCache("HONO");
-
+invalidateTemplateCache("REACT");
