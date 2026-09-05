@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import { UserRole } from "@prisma/client";
 import authConfig from "./auth.config";
 import { db } from "./lib/db";
 import { isOAuthEmailVerified } from "./lib/oauth-email";
@@ -82,6 +83,17 @@ async function upsertOAuthAccount(
 	return true;
 }
 
+function toUserRole(value: unknown): UserRole {
+	if (
+		value === UserRole.ADMIN ||
+		value === UserRole.USER ||
+		value === UserRole.PREMIUM_USER
+	) {
+		return value;
+	}
+	return UserRole.USER;
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
 	session: {
 		strategy: "jwt",
@@ -129,9 +141,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 		async session({ session, token }) {
 			if (token.sub && session.user) {
 				session.user.id = token.sub;
-			}
-			if (token.sub && session.user) {
-				session.user.role = token.role;
+				session.user.role = toUserRole(token.role);
 			}
 			return session;
 		},

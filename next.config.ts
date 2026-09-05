@@ -24,11 +24,7 @@ const nextConfig: NextConfig = {
 		}
 		return config;
 	},
-	transpilePackages: ["../generated/prisma"],
-
-	experimental: {
-		serverComponentsExternalPackages: ["@prisma/client"],
-	},
+	serverExternalPackages: ["@prisma/client"],
 	// Add headers for WebContainer COOP support
 	// In next.config.ts
 	async headers() {
