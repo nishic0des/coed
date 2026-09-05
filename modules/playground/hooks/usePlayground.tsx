@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import type { TemplateFolder } from "../lib/path-to-json";
+import { parseTemplateContent } from "../lib/template-content";
 import { getPlaygroundById, SaveUpdatedCode } from "../actions";
 
 interface PlaygroundData {
@@ -42,9 +43,9 @@ export const usePlayground = (id: string): UsePlaygroundReturn => {
 			setPlaygroundData({ ...data, id });
 
 			const rawContent = data?.templateFiles?.[0]?.content;
+			const parsedContent = parseTemplateContent(rawContent);
 
-			if (typeof rawContent === "string") {
-				const parsedContent = JSON.parse(rawContent);
+			if (parsedContent) {
 				setTemplateData(parsedContent);
 				toast.success("Playground loaded successfully!");
 				return;
@@ -73,7 +74,7 @@ export const usePlayground = (id: string): UsePlaygroundReturn => {
 			}
 			toast.success("Loaded template successfully");
 		} catch (error) {
-			console.error("Error loading playrgound: ", error);
+			console.error("Error loading playground: ", error);
 			setError("Failed to load playground data");
 			toast.error("Failed to load playground data");
 		} finally {

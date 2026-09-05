@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import authConfig from "./auth.config";
 import { db } from "./lib/db";
+import { isOAuthEmailVerified } from "./lib/oauth-email";
 import { getUserById } from "./modules/auth/actions";
 
 export const runtime = "nodejs";
@@ -35,11 +36,14 @@ function accountWriteData(account: AccountFields) {
 
 /**
  * Upsert an OAuth account onto `userId`.
- * If this provider account is already linked to a different user (duplicate
- * Google/GitHub signups), reassign it to `userId` — the user just proved
- * ownership via OAuth (needed for "Connect GitHub" while signed in).
+ * Reassignment is only allowed when the existing owner has the same verified
+ * email (duplicate user rows). Otherwise a provider account cannot be stolen.
  */
-async function upsertOAuthAccount(userId: string, account: AccountFields) {
+async function upsertOAuthAccount(
+	userId: string,
+	account: AccountFields,
+	email: string,
+): Promise<boolean> {
 	const existingAccount = await db.account.findUnique({
 		where: {
 			provider_providerAccountId: {
@@ -56,7 +60,16 @@ async function upsertOAuthAccount(userId: string, account: AccountFields) {
 				...accountWriteData(account),
 			},
 		});
-		return;
+		return true;
+	}
+
+	if (existingAccount.userId !== userId) {
+		const owner = await db.user.findUnique({
+			where: { id: existingAccount.userId },
+		});
+		if (!owner || owner.email !== email) {
+			return false;
+		}
 	}
 
 	await db.account.update({
@@ -66,6 +79,7 @@ async function upsertOAuthAccount(userId: string, account: AccountFields) {
 			...accountWriteData(account),
 		},
 	});
+	return true;
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -74,8 +88,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 	},
 
 	callbacks: {
-		async signIn({ user, account }) {
+		async signIn({ user, account, profile }) {
 			if (!user?.email || !account) return false;
+			if (!isOAuthEmailVerified(account.provider, profile)) return false;
 
 			const existingUser = await db.user.findUnique({
 				where: { email: user.email },
@@ -90,13 +105,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 					},
 				});
 				user.id = newUser.id;
-				await upsertOAuthAccount(newUser.id, account);
-				return true;
+				return upsertOAuthAccount(newUser.id, account, user.email);
 			}
 
 			user.id = existingUser.id;
-			await upsertOAuthAccount(existingUser.id, account);
-			return true;
+			return upsertOAuthAccount(existingUser.id, account, user.email);
 		},
 		async jwt({ token, user }) {
 			// On initial sign-in, prefer the id we set in the signIn callback

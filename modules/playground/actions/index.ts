@@ -5,7 +5,7 @@ import { fail, ok, type ActionResult } from "@/lib/action-result";
 import { TemplateFolder } from "../lib/path-to-json";
 import { currentUser } from "@/modules/auth/actions";
 import { assertPlaygroundOwner } from "../lib/playground-auth";
-import type { TemplateFile } from "@prisma/client";
+import type { Prisma, TemplateFile } from "@prisma/client";
 
 type PlaygroundData = {
 	title: string;
@@ -61,12 +61,13 @@ export const SaveUpdatedCode = async (
 	try {
 		await assertPlaygroundOwner(playgroundId, user.id);
 
+		const content = data as unknown as Prisma.InputJsonValue;
 		const updatedPlayground = await db.templateFile.upsert({
 			where: { playgroundId },
-			update: { content: JSON.stringify(data) },
+			update: { content },
 			create: {
 				playgroundId,
-				content: JSON.stringify(data),
+				content,
 			},
 		});
 		return ok(updatedPlayground);

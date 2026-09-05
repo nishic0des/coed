@@ -22,6 +22,7 @@ export const toggleStarMarked = async (
 		return fail("Unauthorized");
 	}
 	try {
+		await assertPlaygroundOwner(playgroundId, userId);
 		if (isChecked) {
 			const existing = await db.starMark.findFirst({
 				where: { userId, playgroundId },

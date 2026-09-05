@@ -90,7 +90,7 @@ export async function importGithubRepo(input: {
 		return fail(parsed.error.issues[0]?.message ?? "Invalid input");
 	}
 
-	const limit = rateLimit(`github-import:${user.id}`, {
+	const limit = await rateLimit(`github-import:${user.id}`, {
 		limit: 5,
 		windowMs: 10 * 60 * 1000,
 	});
@@ -178,7 +178,7 @@ export async function syncGithubRepo(input: {
 		return fail(parsed.error.issues[0]?.message ?? "Invalid input");
 	}
 
-	const limit = rateLimit(`github-sync:${user.id}`, {
+	const limit = await rateLimit(`github-sync:${user.id}`, {
 		limit: 10,
 		windowMs: 10 * 60 * 1000,
 	});

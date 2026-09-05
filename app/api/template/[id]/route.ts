@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { templatePaths } from "@/lib/template";
 import { getCachedTemplateStructure } from "@/lib/template-cache";
+import { parseTemplateContent } from "@/modules/playground/lib/template-content";
 import { NextRequest } from "next/server";
 import path from "path";
 import fs from "fs";
@@ -39,11 +40,8 @@ export async function GET(
 
 		// Prefer saved template content from DB over filesystem scan
 		const savedFile = playground.templateFiles[0];
-		if (savedFile?.content) {
-			const parsed =
-				typeof savedFile.content === "string"
-					? JSON.parse(savedFile.content)
-					: savedFile.content;
+		const parsed = parseTemplateContent(savedFile?.content);
+		if (parsed) {
 			return Response.json(
 				{ success: true, templateJson: parsed },
 				{ status: 200 },

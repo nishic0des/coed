@@ -10,15 +10,14 @@ export default {
 			// GitHub returns `iss=https://github.com/login/oauth` (RFC 9207).
 			// Without this, Auth.js compares against https://authjs.dev and fails.
 			issuer: "https://github.com/login/oauth",
-			allowDangerousEmailAccountLinking: true,
 			authorization: {
+				// Classic OAuth Apps have no contents:read; `repo` is required for private imports.
 				params: { scope: "read:user user:email repo" },
 			},
 		}),
 		Google({
 			clientId: process.env.AUTH_GOOGLE_ID,
 			clientSecret: process.env.AUTH_GOOGLE_SECRET,
-			allowDangerousEmailAccountLinking: true,
 		}),
 	],
 } satisfies NextAuthConfig;

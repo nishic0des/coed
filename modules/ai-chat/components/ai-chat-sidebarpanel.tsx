@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import "katex/dist/katex.min.css";
 import Image from "next/image";
+import { CHAT_MODELS, DEFAULT_CHAT_MODEL } from "@/lib/ai-models";
 import {
 	loadChatMessages,
 	saveChatMessage,
@@ -60,6 +61,7 @@ interface ChatMessage {
 interface AIChatSidePanelProps {
 	isOpen: boolean;
 	onClose: () => void;
+	playgroundId: string;
 }
 
 const MessageTypeIndicator: React.FC<{
@@ -108,6 +110,7 @@ const MessageTypeIndicator: React.FC<{
 export const AIChatSidePanel: React.FC<AIChatSidePanelProps> = ({
 	isOpen,
 	onClose,
+	playgroundId,
 }) => {
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [input, setInput] = useState("");
@@ -119,13 +122,13 @@ export const AIChatSidePanel: React.FC<AIChatSidePanelProps> = ({
 	const [filterType, setFilterType] = useState<string>("all");
 	const [autoSave, setAutoSave] = useState(true);
 	const [streamResponse, setStreamResponse] = useState(true);
-	const [model, setModel] = useState<string>("qwen3.5:397b-cloud");
+	const [model, setModel] = useState<string>(DEFAULT_CHAT_MODEL);
 
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
-		if (!isOpen) return;
-		loadChatMessages().then((result) => {
+		if (!isOpen || !playgroundId) return;
+		loadChatMessages(playgroundId).then((result) => {
 			if (result.success && result.data.length > 0) {
 				setMessages(
 					result.data.map((msg, i) => ({
@@ -135,9 +138,11 @@ export const AIChatSidePanel: React.FC<AIChatSidePanelProps> = ({
 						timestamp: new Date(msg.createdAt),
 					})),
 				);
+			} else {
+				setMessages([]);
 			}
 		});
-	}, [isOpen]);
+	}, [isOpen, playgroundId]);
 
 	const scrollToBottom = () => {
 		if (messagesEndRef.current) {
@@ -191,7 +196,7 @@ export const AIChatSidePanel: React.FC<AIChatSidePanelProps> = ({
 		setIsLoading(true);
 
 		if (autoSave) {
-			saveChatMessage("user", newMessage.content);
+			saveChatMessage("user", newMessage.content, playgroundId);
 		}
 
 		try {
@@ -252,7 +257,7 @@ export const AIChatSidePanel: React.FC<AIChatSidePanelProps> = ({
 					}
 
 					if (autoSave && fullContent) {
-						saveChatMessage("assistant", fullContent);
+						saveChatMessage("assistant", fullContent, playgroundId);
 					}
 				} else {
 					const data = await response.json();
@@ -271,7 +276,7 @@ export const AIChatSidePanel: React.FC<AIChatSidePanelProps> = ({
 					]);
 
 					if (autoSave) {
-						saveChatMessage("assistant", data.response);
+						saveChatMessage("assistant", data.response, playgroundId);
 					}
 				}
 			} else {
@@ -450,10 +455,11 @@ export const AIChatSidePanel: React.FC<AIChatSidePanelProps> = ({
 											value={model}
 											onChange={(e) => setModel(e.target.value)}
 											className="bg-zinc-900/60 border border-zinc-800 rounded px-2 py-1 text-zinc-200 focus:outline-none">
-											<option value="qwen3.5:397b-cloud">Qwen 3.5</option>
-											<option value="qwen3-coder-next:cloud">Qwen Coder</option>
-											<option value="codellama">codellama</option>
-											<option value="llama2">llama2</option>
+											{CHAT_MODELS.map((item) => (
+												<option key={item.id} value={item.id}>
+													{item.label}
+												</option>
+											))}
 										</select>
 									</div>
 									<div className="relative">

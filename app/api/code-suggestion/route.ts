@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { resolveSuggestionModel } from "@/lib/ai-models";
 import { CodeSuggestionRequestSchema } from "@/lib/api-schemas";
 import { rateLimit } from "@/lib/rate-limit";
 import { type NextRequest, NextResponse } from "next/server";
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
 
-		const limitResult = rateLimit(`suggestion:${session.user.id}`, {
+		const limitResult = await rateLimit(`suggestion:${session.user.id}`, {
 			limit: 60,
 			windowMs: 60_000,
 		});
@@ -145,7 +146,7 @@ function buildPrompt(context: CodeContext, suggestionType: string): string {
 
 async function generateSuggestion(prompt: string): Promise<string> {
 	const response = await ollama.chat({
-		model: "qwen3-coder-next:cloud",
+		model: resolveSuggestionModel(),
 		messages: [{ role: "user", content: prompt }],
 	});
 	if (!response) {

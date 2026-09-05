@@ -27,7 +27,10 @@ export async function scanTemplateDirectory(
 ): Promise<TemplateFolder> {
 	const defaultOptions: ScanOptions = {
 		ignoreFiles: [
-			"packge-lock.json",
+			"package-lock.json",
+			"pnpm-lock.yaml",
+			"bun.lock",
+			"bun.lockb",
 			"yarn.lock",
 			".DS_Store",
 			"thumbs.db",

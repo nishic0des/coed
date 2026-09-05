@@ -33,6 +33,14 @@ describe("ChatRequestSchema", () => {
 		const result = ChatRequestSchema.safeParse({ message: "Hi", history });
 		expect(result.success).toBe(false);
 	});
+
+	it("accepts a model hint (server still allowlists)", () => {
+		const result = ChatRequestSchema.safeParse({
+			message: "Hello",
+			model: "llama2",
+		});
+		expect(result.success).toBe(true);
+	});
 });
 
 describe("CodeSuggestionRequestSchema", () => {

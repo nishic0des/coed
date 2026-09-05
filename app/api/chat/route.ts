@@ -1,42 +1,31 @@
 import { auth } from "@/auth";
+import { resolveChatModel } from "@/lib/ai-models";
 import { ChatRequestSchema } from "@/lib/api-schemas";
 import { rateLimit } from "@/lib/rate-limit";
 import { type NextRequest, NextResponse } from "next/server";
 import ollama from "ollama";
 
-const DEFAULT_MODEL = "qwen3.5:397b-cloud";
-
-interface ChatMessage {
-	role: "user" | "assistant";
-	content: string;
-}
-
-function buildPrompt(messages: ChatMessage[]): string {
-	const systemPrompt = `You are a helpful AI coding assistant. You help developers with:
+const SYSTEM_PROMPT = `You are a helpful AI coding assistant. You help developers with:
 - Code explanations and debugging
-- Best practices and architecture advice  
+- Best practices and architecture advice
 - Writing clean, efficient code
 - Troubleshooting errors
 - Code reviews and optimizations
 
 Always provide clear, practical answers. Use proper code formatting when showing examples.`;
 
-	const fullMessages = [{ role: "user", content: systemPrompt }, ...messages];
-
-	return fullMessages
-		.map((msg) => `${msg.role}:${msg.content}`)
-		.join("\n\n");
+interface ChatMessage {
+	role: "user" | "assistant";
+	content: string;
 }
 
 async function generateAIResponse(
 	messages: ChatMessage[],
 	model: string,
 ): Promise<string> {
-	const prompt = buildPrompt(messages);
-
 	const res = await ollama.chat({
 		model,
-		messages: [{ role: "user", content: prompt }],
+		messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
 	});
 
 	const data = res.message.content;
@@ -50,12 +39,11 @@ async function streamAIResponse(
 	messages: ChatMessage[],
 	model: string,
 ): Promise<ReadableStream<Uint8Array>> {
-	const prompt = buildPrompt(messages);
 	const encoder = new TextEncoder();
 
 	const ollamaStream = await ollama.chat({
 		model,
-		messages: [{ role: "user", content: prompt }],
+		messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
 		stream: true,
 	});
 
@@ -83,7 +71,7 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}
 
-		const limitResult = rateLimit(`chat:${session.user.id}`, {
+		const limitResult = await rateLimit(`chat:${session.user.id}`, {
 			limit: 20,
 			windowMs: 60_000,
 		});
@@ -110,9 +98,9 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		const { message, history, model, stream } = parsed.data;
+		const { message, history, stream } = parsed.data;
+		const selectedModel = resolveChatModel(parsed.data.model);
 		const recentHistory = history.slice(-10);
-		const selectedModel = model ?? DEFAULT_MODEL;
 
 		const messages: ChatMessage[] = [
 			...recentHistory,

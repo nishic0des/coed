@@ -10,7 +10,8 @@ export const ChatRequestSchema = z.object({
 	history: z.array(ChatMessageSchema).max(20).optional().default([]),
 	stream: z.boolean().optional(),
 	mode: z.string().optional(),
-	model: z.string().optional(),
+	// Client hint only; the API allowlists this against server config.
+	model: z.string().max(100).optional(),
 });
 
 export const CodeSuggestionRequestSchema = z.object({
