@@ -5,6 +5,12 @@ export const ChatMessageSchema = z.object({
 	content: z.string().max(10_000),
 });
 
+export const ChatFileContextSchema = z.object({
+	path: z.string().min(1).max(500),
+	content: z.string().max(50_000),
+	language: z.string().max(50).optional(),
+});
+
 export const ChatRequestSchema = z.object({
 	message: z.string().min(1).max(10_000),
 	history: z.array(ChatMessageSchema).max(20).optional().default([]),
@@ -12,10 +18,12 @@ export const ChatRequestSchema = z.object({
 	mode: z.string().optional(),
 	// Client hint only; the API allowlists this against server config.
 	model: z.string().max(100).optional(),
+	activeFilePath: z.string().max(500).optional(),
+	files: z.array(ChatFileContextSchema).max(8).optional().default([]),
 });
 
 export const CodeSuggestionRequestSchema = z.object({
-	fileContent: z.string().min(1).max(500_000),
+	fileContent: z.string().max(500_000),
 	cursorLine: z.number().int().min(0),
 	cursorColumn: z.number().int().min(0),
 	suggestionType: z.string().min(1).max(100),

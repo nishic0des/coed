@@ -44,6 +44,7 @@ export const useAISuggestions = (): UseAISuggestionsReturn => {
 			if (!model || !cursorPosition) {
 				return currentState;
 			}
+			const fileName = model.uri.path.split("/").pop();
 
 			const newState = { ...currentState, isLoading: true };
 
@@ -51,7 +52,8 @@ export const useAISuggestions = (): UseAISuggestionsReturn => {
 				try {
 					const payload = {
 						fileContent: model.getValue(),
-						cursorLine: cursorPosition.line - 1,
+						fileName: fileName,
+						cursorLine: cursorPosition.lineNumber - 1,
 						cursorColumn: cursorPosition.column - 1,
 						suggestionType: type,
 					};
@@ -98,44 +100,42 @@ export const useAISuggestions = (): UseAISuggestionsReturn => {
 		});
 	}, []);
 
-	const acceptSuggestion = useCallback(() => {
-		(editor: any, monaco: any) => {
-			setState((currentState) => {
-				if (
-					!currentState.suggestion ||
-					!currentState.position ||
-					!editor ||
-					!monaco
-				) {
-					return currentState;
-				}
-				const { line, column } = currentState.position;
+	const acceptSuggestion = useCallback((editor: any, monaco: any) => {
+		setState((currentState) => {
+			if (
+				!currentState.suggestion ||
+				!currentState.position ||
+				!editor ||
+				!monaco
+			) {
+				return currentState;
+			}
+			const { line, column } = currentState.position;
 
-				const sanitizedSuggestion = currentState.suggestion.replace(
-					/^\d+:s*/gm,
-					"",
-				);
+			const sanitizedSuggestion = currentState.suggestion.replace(
+				/^\d+:s*/gm,
+				"",
+			);
 
-				editor.executeEdits("", [
-					{
-						range: new monaco.Range(line, column, line, column),
-						text: sanitizedSuggestion,
-						forceMoveMarkers: true,
-					},
-				]);
+			editor.executeEdits("", [
+				{
+					range: new monaco.Range(line, column, line, column),
+					text: sanitizedSuggestion,
+					forceMoveMarkers: true,
+				},
+			]);
 
-				if (editor && currentState.decoration.length > 0) {
-					editor.deltaDecorations(currentState.decoration, []);
-				}
+			if (editor && currentState.decoration.length > 0) {
+				editor.deltaDecorations(currentState.decoration, []);
+			}
 
-				return {
-					...currentState,
-					suggestion: null,
-					positon: null,
-					decoration: [],
-				};
-			});
-		};
+			return {
+				...currentState,
+				suggestion: null,
+				position: null,
+				decoration: [],
+			};
+		});
 	}, []);
 
 	const rejectSuggestion = useCallback((editor: any) => {
@@ -147,7 +147,7 @@ export const useAISuggestions = (): UseAISuggestionsReturn => {
 			return {
 				...currentState,
 				suggestion: null,
-				positon: null,
+				position: null,
 				decoration: [],
 			};
 		});
@@ -162,7 +162,7 @@ export const useAISuggestions = (): UseAISuggestionsReturn => {
 			return {
 				...currentState,
 				suggestion: null,
-				positon: null,
+				position: null,
 				decoration: [],
 			};
 		});

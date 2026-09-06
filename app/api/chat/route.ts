@@ -3,7 +3,7 @@ import { resolveChatModel } from "@/lib/ai-models";
 import { ChatRequestSchema } from "@/lib/api-schemas";
 import { rateLimit } from "@/lib/rate-limit";
 import { type NextRequest, NextResponse } from "next/server";
-import ollama from "ollama";
+import { ollama } from "@/lib/ollama";
 
 const SYSTEM_PROMPT = `You are a helpful AI coding assistant. You help developers with:
 - Code explanations and debugging
@@ -22,10 +22,15 @@ interface ChatMessage {
 async function generateAIResponse(
 	messages: ChatMessage[],
 	model: string,
+	files: { path: string; content: string }[],
+	activeFilePath?: string,
 ): Promise<string> {
+	const system = [SYSTEM_PROMPT, buildFileContextPrompt(files, activeFilePath)]
+		.filter(Boolean)
+		.join("\n\n");
 	const res = await ollama.chat({
 		model,
-		messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
+		messages: [{ role: "system", content: system }, ...messages],
 	});
 
 	const data = res.message.content;
@@ -38,12 +43,17 @@ async function generateAIResponse(
 async function streamAIResponse(
 	messages: ChatMessage[],
 	model: string,
+	files: { path: string; content: string }[],
+	activeFilePath?: string,
 ): Promise<ReadableStream<Uint8Array>> {
 	const encoder = new TextEncoder();
+	const system = [SYSTEM_PROMPT, buildFileContextPrompt(files, activeFilePath)]
+		.filter(Boolean)
+		.join("\n\n");
 
 	const ollamaStream = await ollama.chat({
 		model,
-		messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
+		messages: [{ role: "system", content: system }, ...messages],
 		stream: true,
 	});
 
@@ -62,6 +72,25 @@ async function streamAIResponse(
 			}
 		},
 	});
+}
+
+function buildFileContextPrompt(
+	files: { path: string; content: string }[],
+	activeFilePath?: string,
+): string {
+	if (files.length === 0) return "";
+
+	const blocks = files.map((f) => {
+		const marker = f.path === activeFilePath ? " (active)" : "";
+		return `### ${f.path}${marker}\n\`\`\`\n${f.content}\n\`\`\``;
+	});
+
+	return [
+		"The user is editing a playground. Use this file context when relevant.",
+		"Prefer the active file. Quote paths when you refer to code.",
+		"",
+		...blocks,
+	].join("\n");
 }
 
 export async function POST(req: NextRequest) {
@@ -98,7 +127,7 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		const { message, history, stream } = parsed.data;
+		const { message, history, stream, files, activeFilePath } = parsed.data;
 		const selectedModel = resolveChatModel(parsed.data.model);
 		const recentHistory = history.slice(-10);
 
@@ -108,7 +137,12 @@ export async function POST(req: NextRequest) {
 		];
 
 		if (stream) {
-			const body = await streamAIResponse(messages, selectedModel);
+			const body = await streamAIResponse(
+				messages,
+				selectedModel,
+				files,
+				activeFilePath,
+			);
 			return new Response(body, {
 				headers: {
 					"Content-Type": "text/plain; charset=utf-8",
@@ -117,7 +151,12 @@ export async function POST(req: NextRequest) {
 			});
 		}
 
-		const res = await generateAIResponse(messages, selectedModel);
+		const res = await generateAIResponse(
+			messages,
+			selectedModel,
+			files,
+			activeFilePath,
+		);
 
 		return NextResponse.json({
 			response: res,

@@ -2,13 +2,18 @@
 "use client";
 
 import { useRef, useEffect, useCallback } from "react";
-import Editor, { type Monaco } from "@monaco-editor/react";
+import Editor, { loader, type Monaco } from "@monaco-editor/react";
+import * as monaco from "monaco-editor";
 import { TemplateFile } from "../lib/path-to-json";
 import {
 	configureMonaco,
 	defaultEditorOptions,
 	getEditorLanguage,
 } from "../lib/editor-config";
+
+loader.config({
+	monaco,
+});
 
 interface PlaygroundEditorProps {
 	activeFile: TemplateFile | undefined;
@@ -146,6 +151,9 @@ export const PlaygroundEditor = ({
 							},
 						],
 					};
+				},
+				disposeInlineCompletions: (completions: any) => {
+					console.log("disposeInlineCompletions called");
 				},
 				freeInlineCompletions: (completions: any) => {
 					console.log("freeInlineCompletions called");
@@ -404,9 +412,6 @@ export const PlaygroundEditor = ({
 		});
 
 		// CRITICAL: Override Tab key with high priority and prevent default Monaco behavior
-		if (tabCommandRef.current) {
-			tabCommandRef.current.dispose();
-		}
 
 		tabCommandRef.current = editor.addCommand(
 			monaco.KeyCode.Tab,
@@ -588,7 +593,6 @@ export const PlaygroundEditor = ({
 				inlineCompletionProviderRef.current = null;
 			}
 			if (tabCommandRef.current) {
-				tabCommandRef.current.dispose();
 				tabCommandRef.current = null;
 			}
 		};

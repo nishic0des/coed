@@ -43,10 +43,8 @@ import {
 import "katex/dist/katex.min.css";
 import Image from "next/image";
 import { CHAT_MODELS, DEFAULT_CHAT_MODEL } from "@/lib/ai-models";
-import {
-	loadChatMessages,
-	saveChatMessage,
-} from "@/modules/ai-chat/actions";
+import { loadChatMessages, saveChatMessage } from "@/modules/ai-chat/actions";
+import { ChatFileSnippet } from "../types";
 
 interface ChatMessage {
 	role: "user" | "assistant";
@@ -62,6 +60,8 @@ interface AIChatSidePanelProps {
 	isOpen: boolean;
 	onClose: () => void;
 	playgroundId: string;
+	contextFiles: ChatFileSnippet[];
+	activeFilePath: string | undefined;
 }
 
 const MessageTypeIndicator: React.FC<{
@@ -111,6 +111,8 @@ export const AIChatSidePanel: React.FC<AIChatSidePanelProps> = ({
 	isOpen,
 	onClose,
 	playgroundId,
+	contextFiles,
+	activeFilePath,
 }) => {
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [input, setInput] = useState("");
@@ -216,6 +218,8 @@ export const AIChatSidePanel: React.FC<AIChatSidePanelProps> = ({
 					stream: streamResponse,
 					mode: chatMode,
 					model,
+					activeFilePath,
+					files: contextFiles,
 				}),
 			});
 
@@ -505,6 +509,7 @@ export const AIChatSidePanel: React.FC<AIChatSidePanelProps> = ({
 					</div>
 
 					{/* Messages Container */}
+
 					<div className="flex-1 overflow-y-auto bg-zinc-950">
 						<div className="p-6 space-y-6">
 							{filteredMessages.length === 0 && !isLoading && (
@@ -664,6 +669,13 @@ export const AIChatSidePanel: React.FC<AIChatSidePanelProps> = ({
 					<form
 						onSubmit={handleSendMessage}
 						className="shrink-0 p-4 border-t border-zinc-800 bg-zinc-900/80 backdrop-blur-sm">
+						{contextFiles.length > 0 && (
+							<p className="text-xs text-muted-foreground pb-4">
+								Including {contextFiles.length} open file
+								{contextFiles.length === 1 ? "" : "s"}
+								{activeFilePath ? ` . active: ${activeFilePath}` : "."}
+							</p>
+						)}
 						<div className="flex items-end gap-3">
 							<div className="flex-1 relative">
 								<Textarea

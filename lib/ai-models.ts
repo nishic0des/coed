@@ -1,9 +1,10 @@
-export const DEFAULT_CHAT_MODEL = "qwen3.5:397b-cloud";
-export const DEFAULT_SUGGESTION_MODEL = "qwen3-coder-next:cloud";
+export const DEFAULT_CHAT_MODEL = "gemma4:31b";
+export const DEFAULT_SUGGESTION_MODEL = "gpt-oss:20b";
 
 export const CHAT_MODELS = [
-	{ id: DEFAULT_CHAT_MODEL, label: "Qwen 3.5" },
-	{ id: DEFAULT_SUGGESTION_MODEL, label: "Qwen Coder" },
+	{ id: DEFAULT_CHAT_MODEL, label: "Gemma 4 31B" },
+	{ id: "gpt-oss:120b", label: "GPT-OSS 120B" },
+	{ id: DEFAULT_SUGGESTION_MODEL, label: "GPT-OSS" },
 ] as const;
 
 function parseModelList(value: string | undefined): string[] {
@@ -29,5 +30,7 @@ export function resolveChatModel(requested?: string | null): string {
 }
 
 export function resolveSuggestionModel(): string {
-	return process.env.OLLAMA_SUGGESTION_MODEL?.trim() || DEFAULT_SUGGESTION_MODEL;
+	return (
+		process.env.OLLAMA_SUGGESTION_MODEL?.trim() || DEFAULT_SUGGESTION_MODEL
+	);
 }

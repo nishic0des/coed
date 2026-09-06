@@ -3,7 +3,7 @@ import { resolveSuggestionModel } from "@/lib/ai-models";
 import { CodeSuggestionRequestSchema } from "@/lib/api-schemas";
 import { rateLimit } from "@/lib/rate-limit";
 import { type NextRequest, NextResponse } from "next/server";
-import ollama from "ollama";
+import { ollama } from "@/lib/ollama";
 
 interface CodeContext {
 	language: string;
@@ -34,7 +34,11 @@ export async function POST(request: NextRequest) {
 				{ error: "Rate limit exceeded. Please try again later." },
 				{
 					status: 429,
-					headers: { "Retry-After": String(Math.ceil((limitResult.resetAt - Date.now()) / 1000)) },
+					headers: {
+						"Retry-After": String(
+							Math.ceil((limitResult.resetAt - Date.now()) / 1000),
+						),
+					},
 				},
 			);
 		}

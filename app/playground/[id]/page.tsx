@@ -69,6 +69,49 @@ import ToggleAI from "@/modules/playground/components/toggle-ai";
 import { useAISuggestions } from "@/modules/playground/hooks/useAISuggestion";
 import GithubSyncButton from "@/modules/playground/components/github-sync-button";
 
+const MAX_FILES = 8;
+const MAX_ACTIVE = 30_000;
+const MAX_OTHER = 15_000;
+
+function buildChatContext(
+	openFiles: Array<{
+		filename: string;
+		fileExtension: string;
+		content: string;
+		id: string;
+	}>,
+	activeFileId: string | null,
+	templateData: TemplateFolder | null,
+) {
+	const snippets = openFiles.slice(0, MAX_FILES).map((file) => {
+		const path =
+			(templateData && findFilePath(file, templateData)?.replace(/^\/+/, "")) ||
+			`${file.filename}${file.fileExtension ? `.${file.fileExtension}` : ""}`;
+
+		const isActive = file.id === activeFileId;
+		const limit = isActive ? MAX_ACTIVE : MAX_OTHER;
+
+		return {
+			path,
+			content: file.content.slice(0, limit),
+			language: file.fileExtension || undefined,
+		};
+	});
+
+	const active = openFiles.find((f) => f.id === activeFileId);
+	const activeFilePath = active
+		? (templateData &&
+				findFilePath(active, templateData)?.replace(/^\/+/, "")) ||
+			`${active.filename}${active.fileExtension ? `.${active.fileExtension}` : ""}`
+		: undefined;
+
+	snippets.sort((a, b) =>
+		a.path === activeFilePath ? -1 : b.path === activeFilePath ? 1 : 0,
+	);
+
+	return { contextFiles: snippets, activeFilePath };
+}
+
 const MainPlaygroundPage = () => {
 	const { id } = useParams<{ id: string }>();
 
@@ -107,6 +150,12 @@ const MainPlaygroundPage = () => {
 		handleRenameFolder,
 		updateFileContent,
 	} = useFileExplorer();
+
+	const { contextFiles, activeFilePath } = buildChatContext(
+		openFiles,
+		activeFileId,
+		templateData,
+	);
 
 	const {
 		serverUrl,
@@ -469,6 +518,8 @@ const MainPlaygroundPage = () => {
 									onToggle={aiSuggestion.toggleEnabled}
 									suggestionLoading={aiSuggestion.isLoading}
 									playgroundId={id}
+									contextFiles={contextFiles}
+									activeFilePath={activeFilePath}
 								/>
 
 								<DropdownMenu>
@@ -603,8 +654,7 @@ const MainPlaygroundPage = () => {
 											activeFile={activeFile}
 											content={activeFile?.content || ""}
 											onContentChange={(value) => {
-												activeFileId &&
-													updateFileContent(activeFileId, value);
+												activeFileId && updateFileContent(activeFileId, value);
 											}}
 											suggestion={aiSuggestion.suggestion}
 											suggestionLoading={aiSuggestion.isLoading}

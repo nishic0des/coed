@@ -36,11 +36,14 @@ import {
 import React from "react";
 import { cn } from "@/lib/utils";
 import { AIChatSidePanel } from "@/modules/ai-chat/components/ai-chat-sidebarpanel";
+import { ChatFileSnippet } from "@/modules/ai-chat/types";
 
 interface ToggleAIProps {
 	isEnabled: boolean;
 	onToggle: (value: boolean) => void;
 	playgroundId: string;
+	contextFiles: ChatFileSnippet[];
+	activeFilePath: string | undefined;
 
 	suggestionLoading: boolean;
 	loadingProgress?: number;
@@ -51,7 +54,8 @@ const ToggleAI: React.FC<ToggleAIProps> = ({
 	isEnabled,
 	onToggle,
 	playgroundId,
-
+	contextFiles,
+	activeFilePath,
 	suggestionLoading,
 	loadingProgress = 0,
 	activeFeature,
@@ -175,6 +179,8 @@ const ToggleAI: React.FC<ToggleAIProps> = ({
 				isOpen={isChatOpen}
 				onClose={() => setIsChatOpen(false)}
 				playgroundId={playgroundId}
+				contextFiles={contextFiles}
+				activeFilePath={activeFilePath}
 			/>
 		</>
 	);

@@ -53,9 +53,7 @@ describe("resolveChatModel", () => {
 	});
 
 	it("accepts an allowlisted model", () => {
-		expect(resolveChatModel("qwen3-coder-next:cloud")).toBe(
-			"qwen3-coder-next:cloud",
-		);
+		expect(resolveChatModel("gpt-oss:120b")).toBe("gpt-oss:120b");
 	});
 
 	it("uses env allowlist when set", () => {
@@ -65,7 +63,7 @@ describe("resolveChatModel", () => {
 	});
 
 	it("resolves suggestion model from env or default", () => {
-		expect(resolveSuggestionModel()).toBe("qwen3-coder-next:cloud");
+		expect(resolveSuggestionModel()).toBe("gpt-oss:120b");
 		process.env.OLLAMA_SUGGESTION_MODEL = "custom-coder";
 		expect(resolveSuggestionModel()).toBe("custom-coder");
 	});
