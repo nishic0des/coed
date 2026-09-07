@@ -173,7 +173,7 @@ export function DashboardSidebar({
 								  })}
 							<SidebarMenuItem>
 								<SidebarMenuButton asChild tooltip="View all">
-									<Link href="/playgrounds">
+									<Link href="/dashboard">
 										<span className="text-sm text-muted-foreground">
 											View all playgrounds
 										</span>

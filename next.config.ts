@@ -4,6 +4,11 @@ const nextConfig: NextConfig = {
 	reactCompiler: true,
 	// Add empty turbopack config to use Turbopack
 	turbopack: {},
+	// Ensure starter templates are available to the template API in production
+	outputFileTracingIncludes: {
+		"/api/template/[id]": ["./templates/**/*"],
+		"/dashboard": ["./templates/**/*"],
+	},
 	images: {
 		remotePatterns: [
 			{

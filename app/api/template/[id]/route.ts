@@ -1,11 +1,13 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { templatePaths } from "@/lib/template";
-import { getCachedTemplateStructure } from "@/lib/template-cache";
+import {
+	loadTemplateStructure,
+	templatePaths,
+	type TemplateKey,
+} from "@/lib/template";
 import { parseTemplateContent } from "@/modules/playground/lib/template-content";
-import { NextRequest } from "next/server";
-import path from "path";
-import fs from "fs";
+import type { Prisma } from "@prisma/client";
+import { type NextRequest } from "next/server";
 
 function validateJsonStructure(data: unknown): boolean {
 	try {
@@ -18,7 +20,7 @@ function validateJsonStructure(data: unknown): boolean {
 }
 
 export async function GET(
-	request: NextRequest,
+	_request: NextRequest,
 	{ params }: { params: Promise<{ id: string }> },
 ) {
 	try {
@@ -48,22 +50,12 @@ export async function GET(
 			);
 		}
 
-		const templateKey = playground.template as keyof typeof templatePaths;
-		const templatePath = templatePaths[templateKey];
-
-		if (!templatePath) {
+		const templateKey = playground.template as TemplateKey;
+		if (!(templateKey in templatePaths)) {
 			return Response.json({ error: "Invalid template" }, { status: 404 });
 		}
 
-		const inputPath = path.join(process.cwd(), templatePath);
-
-		try {
-			await fs.promises.access(inputPath);
-		} catch {
-			throw new Error(`Template directory ${inputPath} does not exist`);
-		}
-
-		const result = await getCachedTemplateStructure(templateKey, inputPath);
+		const result = await loadTemplateStructure(templateKey);
 
 		if (!validateJsonStructure(result.items)) {
 			return Response.json(
@@ -72,15 +64,24 @@ export async function GET(
 			);
 		}
 
+		// Persist so later loads (and hosts without template files) work from DB
+		await db.templateFile.upsert({
+			where: { playgroundId: playground.id },
+			update: { content: result as unknown as Prisma.InputJsonValue },
+			create: {
+				playgroundId: playground.id,
+				content: result as unknown as Prisma.InputJsonValue,
+			},
+		});
+
 		return Response.json(
 			{ success: true, templateJson: result },
 			{ status: 200 },
 		);
 	} catch (error) {
 		console.error("Error in template API:", error);
-		return Response.json(
-			{ error: "Failed to generate template" },
-			{ status: 500 },
-		);
+		const message =
+			error instanceof Error ? error.message : "Failed to generate template";
+		return Response.json({ error: message }, { status: 500 });
 	}
 }

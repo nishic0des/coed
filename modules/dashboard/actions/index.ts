@@ -2,6 +2,10 @@
 
 import { db } from "@/lib/db";
 import { fail, ok, type ActionResult } from "@/lib/action-result";
+import {
+	loadTemplateStructure,
+	type TemplateKey,
+} from "@/lib/template";
 import { currentUser } from "@/modules/auth/actions";
 import { assertPlaygroundOwner } from "@/modules/playground/lib/playground-auth";
 import { revalidatePath } from "next/cache";
@@ -78,7 +82,7 @@ export const getAllPlaygroundForUser = async (): Promise<
 
 export const createPlayground = async (data: {
 	title: string;
-	template: "REACT" | "NEXTJS" | "EXPRESS" | "VUE" | "HONO" | "ANGULAR";
+	template: TemplateKey;
 	description?: string;
 }): Promise<ActionResult<Playground>> => {
 	const user = await currentUser();
@@ -87,13 +91,20 @@ export const createPlayground = async (data: {
 	}
 	const { template, title, description } = data;
 	try {
+		const structure = await loadTemplateStructure(template);
 		const playground = await db.playground.create({
 			data: {
 				title,
 				description,
 				template,
 				userId: user.id,
+				templateFiles: {
+					create: {
+						content: structure as unknown as Prisma.InputJsonValue,
+					},
+				},
 			},
+			include: { templateFiles: true },
 		});
 		return ok(playground);
 	} catch (error) {
