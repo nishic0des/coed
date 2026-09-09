@@ -20,6 +20,13 @@ import { Search, Copy, Trash2, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WebContainer } from "@webcontainer/api";
 
+function stripEmojis(text: string): string {
+	return text
+		.replace(/\p{Extended_Pictographic}/gu, "")
+		.replace(/\uFE0F/g, "")
+		.replace(/\u200D/g, "");
+}
+
 interface TerminalProps {
 	webcontainerUrl?: string;
 	className?: string;
@@ -57,50 +64,52 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(
 
 		const terminalThemes = {
 			dark: {
-				background: "#09090B",
-				foreground: "#FAFAFA",
-				cursor: "#FAFAFA",
-				cursorAccent: "#09090B",
-				selection: "#27272A",
-				black: "#18181B",
-				red: "#EF4444",
-				green: "#22C55E",
-				yellow: "#EAB308",
-				blue: "#3B82F6",
-				magenta: "#A855F7",
-				cyan: "#06B6D4",
-				white: "#F4F4F5",
-				brightBlack: "#3F3F46",
-				brightRed: "#F87171",
-				brightGreen: "#4ADE80",
-				brightYellow: "#FDE047",
-				brightBlue: "#60A5FA",
-				brightMagenta: "#C084FC",
-				brightCyan: "#22D3EE",
-				brightWhite: "#FFFFFF",
+				background: "#1e1e1e",
+				foreground: "#cccccc",
+				cursor: "#aeafad",
+				cursorAccent: "#000000",
+				selection: "#264f78",
+				selectionBackground: "#264f78",
+				black: "#000000",
+				red: "#cd3131",
+				green: "#0dbc79",
+				yellow: "#e5e510",
+				blue: "#2472c8",
+				magenta: "#bc3fbc",
+				cyan: "#11a8cd",
+				white: "#e5e5e5",
+				brightBlack: "#666666",
+				brightRed: "#f14c4c",
+				brightGreen: "#23d18b",
+				brightYellow: "#f5f543",
+				brightBlue: "#3b8eea",
+				brightMagenta: "#d670d6",
+				brightCyan: "#29b8db",
+				brightWhite: "#e5e5e5",
 			},
 			light: {
-				background: "#FFFFFF",
-				foreground: "#18181B",
-				cursor: "#18181B",
-				cursorAccent: "#FFFFFF",
-				selection: "#E4E4E7",
-				black: "#18181B",
-				red: "#DC2626",
-				green: "#16A34A",
-				yellow: "#CA8A04",
-				blue: "#2563EB",
-				magenta: "#9333EA",
-				cyan: "#0891B2",
-				white: "#F4F4F5",
-				brightBlack: "#71717A",
-				brightRed: "#EF4444",
-				brightGreen: "#22C55E",
-				brightYellow: "#EAB308",
-				brightBlue: "#3B82F6",
-				brightMagenta: "#A855F7",
-				brightCyan: "#06B6D4",
-				brightWhite: "#FAFAFA",
+				background: "#ffffff",
+				foreground: "#333333",
+				cursor: "#333333",
+				cursorAccent: "#ffffff",
+				selection: "#add6ff",
+				selectionBackground: "#add6ff",
+				black: "#000000",
+				red: "#cd3131",
+				green: "#00bc00",
+				yellow: "#949800",
+				blue: "#0451a5",
+				magenta: "#bc05bc",
+				cyan: "#0598bc",
+				white: "#555555",
+				brightBlack: "#666666",
+				brightRed: "#cd3131",
+				brightGreen: "#14ce14",
+				brightYellow: "#b5ba00",
+				brightBlue: "#0451a5",
+				brightMagenta: "#bc05bc",
+				brightCyan: "#0598bc",
+				brightWhite: "#a5a5a5",
 			},
 		};
 
@@ -116,7 +125,7 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(
 		useImperativeHandle(ref, () => ({
 			writeToTerminal: (data: string) => {
 				if (term.current) {
-					term.current.write(data);
+					term.current.write(stripEmojis(data));
 				}
 			},
 			clearTerminal: () => {
@@ -184,7 +193,7 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(
 						new WritableStream({
 							write(data) {
 								if (term.current) {
-									term.current.write(data);
+									term.current.write(stripEmojis(data));
 								}
 							},
 						}),
@@ -198,7 +207,9 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(
 					writePrompt();
 				} catch (error) {
 					if (term.current) {
-						term.current.writeln(`\r\nCommand not found: ${command}`);
+						term.current.writeln(
+							`\r\nbash: ${command.split(" ")[0]}: command not found`,
+						);
 						writePrompt();
 					}
 					currentProcess.current = null;
@@ -302,15 +313,18 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(
 
 			const terminal = new Terminal({
 				cursorBlink: true,
-				fontFamily: '"Fira Code", "JetBrains Mono", "Consolas", monospace',
-				fontSize: 14,
+				cursorStyle: "block",
+				fontFamily:
+					'Menlo, Monaco, Consolas, "Courier New", "Liberation Mono", monospace',
+				fontSize: 13,
 				lineHeight: 1.2,
 				letterSpacing: 0,
 				theme: terminalThemes[theme],
 				allowTransparency: false,
 				convertEol: true,
-				scrollback: 1000,
-				tabStopWidth: 4,
+				scrollback: 5000,
+				tabStopWidth: 8,
+				disableStdin: false,
 			});
 
 			// Add addons
@@ -365,36 +379,31 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(
 				}
 			}, 200);
 
-			// Welcome message
-			terminal.writeln("🚀 WebContainer Terminal");
-			terminal.writeln("Type 'help' for available commands");
-			writePrompt();
-
 			return terminal;
-		}, [theme, handleTerminalInput, writePrompt]);
+		}, [theme, handleTerminalInput]);
 
 		const connectToWebContainer = useCallback(async () => {
 			if (!webContainerInstance || !term.current) return;
 
 			try {
 				setIsConnected(true);
-				term.current.writeln("✅ Connected to WebContainer");
-				term.current.writeln("Ready to execute commands");
-				writePrompt();
 			} catch (error) {
 				setIsConnected(false);
-				term.current.writeln("❌ Failed to connect to WebContainer");
+				term.current.writeln(
+					"\x1b[31merror: failed to connect to webcontainer\x1b[0m",
+				);
 				console.error("WebContainer connection error:", error);
 			}
-		}, [webContainerInstance, writePrompt]);
+		}, [webContainerInstance]);
 
 		const clearTerminal = useCallback(() => {
 			if (term.current) {
 				term.current.clear();
-				term.current.writeln("🚀 WebContainer Terminal");
-				writePrompt();
+				term.current.write("$ ");
+				currentLine.current = "";
+				cursorPosition.current = 0;
 			}
-		}, [writePrompt]);
+		}, []);
 
 		const copyTerminalContent = useCallback(async () => {
 			if (term.current) {
@@ -477,81 +486,82 @@ const TerminalComponent = forwardRef<TerminalRef, TerminalProps>(
 
 		return (
 			<div
-				className={cn(
-					"flex flex-col h-full bg-background border rounded-lg overflow-hidden",
-					className,
-				)}>
-				{/* Terminal Header */}
-				<div className="flex items-center justify-between px-3 py-2 border-b bg-muted/50">
-					<div className="flex items-center gap-2">
-						<div className="flex gap-1">
-							<div className="w-3 h-3 rounded-full bg-red-500"></div>
-							<div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-							<div className="w-3 h-3 rounded-full bg-green-500"></div>
-						</div>
-						<span className="text-sm font-medium">WebContainer Terminal</span>
-						{isConnected && (
-							<div className="flex items-center gap-1">
-								<div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-								<span className="text-xs text-muted-foreground">Connected</span>
-							</div>
-						)}
+				className={cn("flex flex-col h-full overflow-hidden", className)}
+				style={{ background: terminalThemes[theme].background }}>
+				<div
+					className={cn(
+						"flex items-center justify-between h-8 px-2 shrink-0 border-b",
+						theme === "dark"
+							? "bg-[#252526] border-[#3c3c3c] text-[#cccccc]"
+							: "bg-[#f3f3f3] border-[#e5e5e5] text-[#333333]",
+					)}>
+					<div className="flex items-center h-full">
+						<span
+							className={cn(
+								"flex items-center h-full px-3 text-xs tracking-wide uppercase",
+								theme === "dark"
+									? "border-b-2 border-[#007acc] text-[#cccccc]"
+									: "border-b-2 border-[#005fb8] text-[#333333]",
+							)}>
+							Terminal
+						</span>
 					</div>
 
-					<div className="flex items-center gap-1">
+					<div className="flex items-center gap-0.5">
 						{showSearch && (
-							<div className="flex items-center gap-2">
-								<Input
-									placeholder="Search..."
-									value={searchTerm}
-									onChange={(e) => {
-										setSearchTerm(e.target.value);
-										searchInTerminal(e.target.value);
-									}}
-									className="h-6 w-32 text-xs"
-								/>
-							</div>
+							<Input
+								placeholder="Find"
+								value={searchTerm}
+								onChange={(e) => {
+									setSearchTerm(e.target.value);
+									searchInTerminal(e.target.value);
+								}}
+								className="h-6 w-36 text-xs bg-transparent border-[#3c3c3c]"
+							/>
 						)}
 
 						<Button
 							variant="ghost"
 							size="sm"
 							onClick={() => setShowSearch(!showSearch)}
-							className="h-6 w-6 p-0">
-							<Search className="h-3 w-3" />
+							className="h-6 w-6 p-0 text-current opacity-70 hover:opacity-100"
+							title="Find">
+							<Search className="h-3.5 w-3.5" />
 						</Button>
 
 						<Button
 							variant="ghost"
 							size="sm"
 							onClick={copyTerminalContent}
-							className="h-6 w-6 p-0">
-							<Copy className="h-3 w-3" />
+							className="h-6 w-6 p-0 text-current opacity-70 hover:opacity-100"
+							title="Copy">
+							<Copy className="h-3.5 w-3.5" />
 						</Button>
 
 						<Button
 							variant="ghost"
 							size="sm"
 							onClick={downloadTerminalLog}
-							className="h-6 w-6 p-0">
-							<Download className="h-3 w-3" />
+							className="h-6 w-6 p-0 text-current opacity-70 hover:opacity-100"
+							title="Download log">
+							<Download className="h-3.5 w-3.5" />
 						</Button>
 
 						<Button
 							variant="ghost"
 							size="sm"
 							onClick={clearTerminal}
-							className="h-6 w-6 p-0">
-							<Trash2 className="h-3 w-3" />
+							className="h-6 w-6 p-0 text-current opacity-70 hover:opacity-100"
+							title="Clear">
+							<Trash2 className="h-3.5 w-3.5" />
 						</Button>
 					</div>
 				</div>
 
-				{/* Terminal Content */}
-				<div className="flex-1 relative">
+				<div className="flex-1 relative min-h-0">
 					<div
 						ref={terminalRef}
-						className="absolute inset-0 p-2"
+						className="absolute inset-0 px-2 py-1"
 						style={{
 							background: terminalThemes[theme].background,
 						}}

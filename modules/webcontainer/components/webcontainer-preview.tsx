@@ -127,9 +127,6 @@ const WebContainerPreview = ({
 
 				setLoadingState((prev) => ({ ...prev, transforming: true }));
 				setCurrentStep(1);
-				terminalRef.current?.writeToTerminal?.(
-					"🔄 Transforming template data...\r\n",
-				);
 
 				// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 				// @ts-ignore
@@ -141,13 +138,7 @@ const WebContainerPreview = ({
 				}));
 				setCurrentStep(2);
 
-				terminalRef.current?.writeToTerminal?.(
-					"📁 Mounting files to WebContainer...\r\n",
-				);
 				await instance.mount(files);
-				terminalRef.current?.writeToTerminal?.(
-					"✅ Files mounted successfully\r\n",
-				);
 
 				setLoadingState((prev) => ({
 					...prev,
@@ -156,9 +147,7 @@ const WebContainerPreview = ({
 				}));
 				setCurrentStep(3);
 
-				terminalRef.current?.writeToTerminal?.(
-					"📦 Installing dependencies...\r\n",
-				);
+				terminalRef.current?.writeToTerminal?.("$ npm install\r\n");
 				const installProcess = await instance.spawn("npm", ["install"]);
 				installProcess.output.pipeTo(
 					new WritableStream({
@@ -175,20 +164,12 @@ const WebContainerPreview = ({
 					);
 				}
 
-				terminalRef.current?.writeToTerminal?.(
-					"✅ Dependencies installed successfully\r\n",
-				);
-
 				setLoadingState((prev) => ({
 					...prev,
 					installing: false,
 					starting: true,
 				}));
 				setCurrentStep(4);
-
-				terminalRef.current?.writeToTerminal?.(
-					"🚀 Starting development server...\r\n",
-				);
 
 				// Never spawn a second server — that kills the port and flashes errors
 				if (!getDevProcess()) {
@@ -205,6 +186,7 @@ const WebContainerPreview = ({
 						);
 					}
 
+					terminalRef.current?.writeToTerminal?.(`\r\n$ npm run ${script}\r\n`);
 					const startProcess = await instance.spawn("npm", ["run", script]);
 					setDevProcess(startProcess);
 
@@ -225,9 +207,6 @@ const WebContainerPreview = ({
 				}
 
 				instance.on("server-ready", (_port: number, url: string) => {
-					terminalRef.current?.writeToTerminal?.(
-						`🌐 Server ready at ${url}\r\n`,
-					);
 					setPreviewUrl(url);
 					setCachedPreviewUrl(url);
 					setLoadingState((prev) => ({
@@ -243,7 +222,9 @@ const WebContainerPreview = ({
 			} catch (err) {
 				console.error("Error setting up container:", err);
 				const errorMessage = err instanceof Error ? err.message : String(err);
-				terminalRef.current?.writeToTerminal?.(`❌ Error: ${errorMessage}\r\n`);
+				terminalRef.current?.writeToTerminal?.(
+					`\x1b[31merror: ${errorMessage}\x1b[0m\r\n`,
+				);
 				setSetupError(errorMessage);
 				setIsSetupInProgress(false);
 				setupInitiatedRef.current = false;
@@ -319,9 +300,9 @@ const WebContainerPreview = ({
 	};
 
 	return (
-		<div
-			className="h-full w-full flex flex-col"
-			style={{ minHeight: "400px", backgroundColor: "#f0f0f0" }}>
+			<div
+				className="h-full w-full flex flex-col bg-[#1e1e1e]"
+				style={{ minHeight: "400px" }}>
 			<div className="flex-1 flex flex-col min-h-0">
 				{!previewUrl ? (
 					<div className="w-full max-w-md p-6 m-5 rounded-lg bg-white dark:bg-zinc-800 shadow-sm mx-auto">
@@ -363,9 +344,8 @@ const WebContainerPreview = ({
 
 			{/* Keep a single terminal mounted so cleanup never kills sibling processes */}
 			<div
-				className="h-64 border-t bg-zinc-950 shrink-0"
+				className="h-64 border-t border-[#3c3c3c] bg-[#1e1e1e] shrink-0"
 				style={{ minHeight: "200px" }}>
-				<div className="p-2 text-center text-xs text-zinc-400">TERMINAL</div>
 				<TerminalComponent
 					ref={terminalRef}
 					webContainerInstance={instance!}
